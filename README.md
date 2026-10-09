@@ -1,6 +1,10 @@
 # fleet
 
-Two [firstmate](https://github.com/kunchenguid/firstmate) fleets on one **NixOS** VPS, with [Orca](https://github.com/stablyai/orca) running headless. You talk to one agent per context (the first mate), it runs a crew of coding agents, and you watch the crew from the Orca app on your Mac or phone.
+Hand off coding tasks to agents on your own server. Check in from your phone while they work around the clock.
+
+You talk to one supervisor agent per account, the first mate, and it splits the work across worker agents. Personal and work run as separate Linux users, so their logins and repos never mix. You follow every worker's terminal live from the Orca app on your Mac or phone.
+
+Under the hood: [firstmate](https://github.com/kunchenguid/firstmate) supervises, [Orca](https://github.com/stablyai/orca) runs headless to host the workers, and a **NixOS** VPS declared in this flake ties it together.
 
 | Context | Linux user | First mate and crew | Models | Orca port |
 |---|---|---|---|---|
