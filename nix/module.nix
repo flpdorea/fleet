@@ -110,81 +110,89 @@ in
       systemd.tmpfiles.rules = [ "d /var/log/fleet 0711 root root -" ];
     }
 
-    (forContexts (ctx: c: {
-      users.users.${ctx} = {
-        isNormalUser = true;
-        openssh.authorizedKeys.keys = cfg.authorizedKeys;
-      };
+    # The attribute names at this level must not depend on cfg: the module
+    # system reads them to find which options are defined, before cfg exists.
+    # So the per-context loop goes inside each option's value.
+    {
+      users.users = forContexts (ctx: _: {
+        ${ctx} = {
+          isNormalUser = true;
+          openssh.authorizedKeys.keys = cfg.authorizedKeys;
+        };
+      });
 
-      systemd.tmpfiles.rules = [ "f /var/log/fleet/orca-${ctx}.log 0600 ${ctx} users -" ];
+      systemd.tmpfiles.rules =
+        lib.mapAttrsToList (ctx: _: "f /var/log/fleet/orca-${ctx}.log 0600 ${ctx} users -") contexts;
 
-      # Prepares the user's firstmate: clone at the pinned commit, config from
-      # this repo, and the toolchain firstmate itself asks for. Runs at boot
-      # and on every rebuild that changes the repo or the firstmate pin.
-      systemd.services."fleet-setup-${ctx}" = {
-        description = "fleet: prepare firstmate for ${ctx}";
-        wantedBy = [ "multi-user.target" ];
-        wants = [ "network-online.target" ];
-        after = [ "network-online.target" ];
-        restartTriggers = [ firstmate.rev self.outPath ];
-        environment = {
-          FLEET_CONTEXT = ctx;
-          FLEET_PRIMARY = c.primary;
-          FLEET_CONFIG_SRC = "${self}/homes/${ctx}/config";
-          FIRSTMATE_REV = firstmate.rev;
-          NPM_CONFIG_PREFIX = "/home/${ctx}/.npm-global";
+      systemd.services = forContexts (ctx: c: {
+        # Prepares the user's firstmate: clone at the pinned commit, config from
+        # this repo, and the toolchain firstmate itself asks for. Runs at boot
+        # and on every rebuild that changes the repo or the firstmate pin.
+        "fleet-setup-${ctx}" = {
+          description = "fleet: prepare firstmate for ${ctx}";
+          wantedBy = [ "multi-user.target" ];
+          wants = [ "network-online.target" ];
+          after = [ "network-online.target" ];
+          restartTriggers = [ firstmate.rev self.outPath ];
+          environment = {
+            FLEET_CONTEXT = ctx;
+            FLEET_PRIMARY = c.primary;
+            FLEET_CONFIG_SRC = "${self}/homes/${ctx}/config";
+            FIRSTMATE_REV = firstmate.rev;
+            NPM_CONFIG_PREFIX = "/home/${ctx}/.npm-global";
+          };
+          path = [ setupScript ];
+          script = ''
+            export PATH="${userPath ctx}:$PATH"
+            exec fleet-setup-user
+          '';
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            User = ctx;
+          };
         };
-        path = [ setupScript ];
-        script = ''
-          export PATH="${userPath ctx}:$PATH"
-          exec fleet-setup-user
-        '';
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          User = ctx;
-        };
-      };
 
-      # The context's headless Orca server. It waits for the Tailscale IP so
-      # the pairing address it advertises is reachable from the tailnet only.
-      systemd.services."orca-serve-${ctx}" = {
-        description = "Orca server (${ctx})";
-        wantedBy = [ "multi-user.target" ];
-        wants = [ "network-online.target" "fleet-setup-${ctx}.service" ];
-        after = [ "network-online.target" "tailscaled.service" "fleet-setup-${ctx}.service" ];
-        # Restarting the server kills the workers in flight. After a rebuild
-        # that updates Orca, restart it at a quiet moment:
-        #   systemctl restart orca-serve-${ctx}
-        restartIfChanged = false;
-        environment = {
-          NPM_CONFIG_PREFIX = "/home/${ctx}/.npm-global";
-          LIBGL_ALWAYS_SOFTWARE = "1";
+        # The context's headless Orca server. It waits for the Tailscale IP so
+        # the pairing address it advertises is reachable from the tailnet only.
+        "orca-serve-${ctx}" = {
+          description = "Orca server (${ctx})";
+          wantedBy = [ "multi-user.target" ];
+          wants = [ "network-online.target" "fleet-setup-${ctx}.service" ];
+          after = [ "network-online.target" "tailscaled.service" "fleet-setup-${ctx}.service" ];
+          # Restarting the server kills the workers in flight. After a rebuild
+          # that updates Orca, restart it at a quiet moment:
+          #   systemctl restart orca-serve-${ctx}
+          restartIfChanged = false;
+          environment = {
+            NPM_CONFIG_PREFIX = "/home/${ctx}/.npm-global";
+            LIBGL_ALWAYS_SOFTWARE = "1";
+          };
+          path = [ agents.orca pkgs.tailscale pkgs.coreutils ];
+          script = ''
+            ip=""
+            for _ in $(seq 60); do
+              ip=$(tailscale ip -4 2>/dev/null | head -1) && [ -n "$ip" ] && break
+              sleep 5
+            done
+            if [ -z "$ip" ]; then
+              echo "no Tailscale IP; as root, run: tailscale up" >&2
+              exit 1
+            fi
+            # Agents inherit this PATH: the harness, git, gh and the user's own tools.
+            export PATH="${userPath ctx}:$PATH"
+            cd "$HOME"
+            exec orca-ide serve --port ${toString c.orcaPort} --pairing-address "$ip"
+          '';
+          serviceConfig = {
+            User = ctx;
+            Restart = "on-failure";
+            RestartSec = 10;
+            StandardOutput = "append:/var/log/fleet/orca-${ctx}.log";
+            StandardError = "append:/var/log/fleet/orca-${ctx}.log";
+          };
         };
-        path = [ agents.orca pkgs.tailscale pkgs.coreutils ];
-        script = ''
-          ip=""
-          for _ in $(seq 60); do
-            ip=$(tailscale ip -4 2>/dev/null | head -1) && [ -n "$ip" ] && break
-            sleep 5
-          done
-          if [ -z "$ip" ]; then
-            echo "no Tailscale IP; as root, run: tailscale up" >&2
-            exit 1
-          fi
-          # Agents inherit this PATH: the harness, git, gh and the user's own tools.
-          export PATH="${userPath ctx}:$PATH"
-          cd "$HOME"
-          exec orca-ide serve --port ${toString c.orcaPort} --pairing-address "$ip"
-        '';
-        serviceConfig = {
-          User = ctx;
-          Restart = "on-failure";
-          RestartSec = 10;
-          StandardOutput = "append:/var/log/fleet/orca-${ctx}.log";
-          StandardError = "append:/var/log/fleet/orca-${ctx}.log";
-        };
-      };
-    }))
+      });
+    }
   ]);
 }
