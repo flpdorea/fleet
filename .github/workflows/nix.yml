@@ -1,0 +1,50 @@
+# Keeps flake.lock (every pinned version) current and checks that the
+# NixOS configuration evaluates before you run fleet-rebuild on the VPS.
+name: nix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 9 * * 1" # Monday morning: bump versions
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: DeterminateSystems/nix-installer-action@v23
+        with:
+          extra-conf: |
+            extra-substituters = https://cache.numtide.com
+            extra-trusted-public-keys = niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=
+
+      - name: Lock versions (creates flake.lock if missing)
+        run: nix flake lock
+
+      - name: Update versions (scheduled or manual)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: nix flake update
+
+      - name: Shellcheck
+        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh
+
+      - name: Evaluate the whole NixOS configuration
+        run: nix eval --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath
+
+      - name: Publish flake.lock
+        if: github.event_name != 'pull_request'
+        run: |
+          if [ -n "$(git status --porcelain flake.lock)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add flake.lock
+            git commit -m "flake.lock: update pinned versions"
+            git push
+          fi
