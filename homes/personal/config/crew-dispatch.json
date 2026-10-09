@@ -1,0 +1,30 @@
+{
+  "rules": [
+    {
+      "when": "trivial: one file, an obvious mechanical change (docs, rename, lint, version bump, config tweak)",
+      "use": { "harness": "pi", "model": "openai-codex/gpt-5.6-terra", "effort": "low" },
+      "why": "nothing to decide; low effort preserves the 5-hour usage window"
+    },
+    {
+      "when": "broad: a feature or refactor touching many files, a code migration between APIs, extensive tests",
+      "use": { "harness": "pi", "model": "openai-codex/gpt-5.6-terra", "effort": "high" },
+      "why": "the task is understood but long; raise effort before raising the model"
+    },
+    {
+      "when": "ambiguous: a bug with no known cause, an intermittent failure, an investigation or a design decision with trade-offs",
+      "use": { "harness": "pi", "model": "openai-codex/gpt-5.6-sol", "effort": "medium" },
+      "why": "the problem is judgment, so raise the model; Sol medium is the recommended starting point for investigations"
+    },
+    {
+      "when": "sensitive or long and unattended: security, auth, data migration, or hours-long work where a wrong direction is expensive",
+      "use": { "harness": "pi", "model": "openai-codex/gpt-5.6-sol", "effort": "high" },
+      "why": "top model with more verification; high is the sustainable ceiling on the subscription"
+    },
+    {
+      "when": "escalation: a task that already failed at another level because of a judgment error (not a vague brief)",
+      "use": { "harness": "pi", "model": "openai-codex/gpt-5.6-sol", "effort": "xhigh" },
+      "why": "last resort; xhigh costs ~30% more time and tokens than medium with no gain on ordinary tasks"
+    }
+  ],
+  "default": { "harness": "pi", "model": "openai-codex/gpt-5.6-terra", "effort": "medium" }
+}

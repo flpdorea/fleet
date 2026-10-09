@@ -1,0 +1,30 @@
+{
+  "rules": [
+    {
+      "when": "trivial: one file, an obvious mechanical change (docs, rename, lint, version bump, config tweak)",
+      "use": { "harness": "claude", "model": "opus", "effort": "low" },
+      "why": "Opus low costs ~40% of medium; with no decision to make, the capability loss does not show"
+    },
+    {
+      "when": "broad: a feature or refactor touching many files, a code migration between APIs, extensive tests",
+      "use": { "harness": "claude", "model": "opus", "effort": "high" },
+      "why": "the task is understood but long; more effort improves planning and verification"
+    },
+    {
+      "when": "ambiguous: a bug with no known cause, an intermittent failure, an investigation or a design decision with trade-offs",
+      "use": { "harness": "claude", "model": "opus", "effort": "xhigh" },
+      "why": "the problem is judgment; Opus xhigh beats Fable on current coding benchmarks and costs far less"
+    },
+    {
+      "when": "sensitive or long and unattended: security, auth, data migration, or hours-long work where a wrong direction is expensive",
+      "use": { "harness": "claude", "model": "fable", "effort": "high" },
+      "why": "where Fable still pays off: getting it right the first time and security-sensitive code; high is its default"
+    },
+    {
+      "when": "escalation: a task that already failed at another level because of a judgment error (not a vague brief)",
+      "use": { "harness": "claude", "model": "fable", "effort": "xhigh" },
+      "why": "last resort; it burns a large share of the weekly limit, so only after Opus has failed"
+    }
+  ],
+  "default": { "harness": "claude", "model": "opus", "effort": "medium" }
+}
