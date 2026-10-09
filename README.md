@@ -6,6 +6,9 @@ You talk to one supervisor agent per account, the first mate, and it splits the 
 
 Under the hood: [firstmate](https://github.com/kunchenguid/firstmate) supervises, [Orca](https://github.com/stablyai/orca) runs headless to host the workers, and a **NixOS** VPS declared in this flake ties it together.
 
+> [!NOTE]
+> This is my personal setup, tuned to how I work: my accounts, my models, my VPS. Use it and try it out, I recommend it. But I encourage you even more to build your own, and to treat this repo as inspiration rather than a product. If you fork it, point `FLEET_REPO` in `install.sh` at your fork.
+
 | Context | Linux user | First mate and crew | Models | Orca port |
 |---|---|---|---|---|
 | `personal` | `personal` | Pi | GPT-5.6 Terra / Sol through the ChatGPT subscription | 6768 |
