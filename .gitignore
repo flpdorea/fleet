@@ -1,0 +1,4 @@
+# firstmate and its state live in each user's ~/fleet on the VPS, not here
+result
+result-*
+.env
