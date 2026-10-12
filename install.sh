@@ -157,10 +157,15 @@ cat >/etc/nixos/fleet-bootstrap.nix <<'EOF'
     # The switch runs from inside this service; restarting it midway would kill the switch.
     restartIfChanged = false;
     path = [ config.system.build.nixos-rebuild config.nix.package pkgs.git pkgs.coreutils ];
+    # A network or cache hiccup must not leave the machine half-installed
+    # until someone reboots it: retry every 30 s, with no start limit.
+    startLimitIntervalSec = 0;
     serviceConfig = {
       Type = "oneshot";
       TimeoutStartSec = "2h";
       StandardOutput = "journal+console";
+      Restart = "on-failure";
+      RestartSec = 30;
     };
     script = ''
       nixos-rebuild switch --flake /etc/nixos#fleet
