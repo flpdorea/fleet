@@ -114,7 +114,11 @@ in
 
       environment.etc."fleet/contexts.json".text = builtins.toJSON contexts;
 
-      systemd.tmpfiles.rules = [ "d /var/log/fleet 0711 root root -" ];
+      systemd.tmpfiles.rules = [
+        "d /var/log/fleet 0711 root root -"
+        # Shared by every context's Xvfb; sticky so no user can remove another's socket.
+        "d /tmp/.X11-unix 1777 root root -"
+      ];
     }
 
     # The attribute names at this level must not depend on cfg: the module
@@ -175,7 +179,7 @@ in
             NPM_CONFIG_PREFIX = "/home/${ctx}/.npm-global";
             LIBGL_ALWAYS_SOFTWARE = "1";
           };
-          path = [ agents.orca pkgs.tailscale pkgs.coreutils ];
+          path = [ agents.orca pkgs.tailscale pkgs.coreutils pkgs.xvfb ];
           script = ''
             ip=""
             for _ in $(seq 60); do
@@ -186,6 +190,20 @@ in
               echo "no Tailscale IP; as root, run: tailscale up" >&2
               exit 1
             fi
+            # orca-ide serve needs an X display and, without one, starts its own
+            # Xvfb on the fixed display :99. Every context would then share
+            # :99: a restart in one takes the other's display down, and stale
+            # files left by a crash belong to one user, so the sticky /tmp
+            # stops the other from taking :99 over. Each context gets its own
+            # display instead (port 6768 -> :68), which Orca accepts as is.
+            # Nothing else uses that number, so leftovers here are ours.
+            d=${toString (c.orcaPort - 6700)}
+            rm -f "/tmp/.X$d-lock" "/tmp/.X11-unix/X$d"
+            Xvfb ":$d" -screen 0 1280x1024x24 -nolisten tcp &
+            for _ in $(seq 50); do [ -S "/tmp/.X11-unix/X$d" ] && break; sleep 0.1; done
+            [ -S "/tmp/.X11-unix/X$d" ] || { echo "Xvfb did not start on :$d" >&2; exit 1; }
+            export DISPLAY=":$d"
+
             # Agents inherit this PATH: the harness, git, gh and the user's own tools.
             export PATH="${userPath ctx}:$PATH"
             cd "$HOME"
