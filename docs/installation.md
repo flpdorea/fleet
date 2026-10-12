@@ -110,14 +110,14 @@ ssh -t fleet "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/i
 
 ## First boot
 
-The machine comes back as a minimal NixOS. The `fleet-bootstrap` service then switches it to the full configuration from this repo. SSH host keys are preserved, so you will not get a host key warning.
+The machine comes back as a minimal NixOS. The `fleet-bootstrap` service then builds the full configuration from this repo, makes it the boot default and reboots into it. SSH host keys are preserved, so you will not get a host key warning.
 
 ```bash
 ssh fleet
 journalctl -fu fleet-bootstrap
 ```
 
-Wait for `fleet: ready`. Most of the time goes to downloading packages from the NixOS and numtide caches. During the switch, the context users are created and both `fleet-setup-<ctx>` services run.
+Wait for `fleet: ready, rebooting into the full system`; the connection drops right after. Most of the time goes to downloading packages from the NixOS and numtide caches. After the reboot, the context users exist, the machine joins the tailnet and both `fleet-setup-<ctx>` services run. If a step fails, the service retries every 30 seconds on its own.
 
 Check that everything is up:
 
