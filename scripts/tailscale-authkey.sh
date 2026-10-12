@@ -3,7 +3,7 @@
 # tagged tag:fleet, valid for one hour. Run it on your computer, inline in
 # the install command, so the key never sits in a file or a chat:
 #
-#   ssh -t root@VPS_IP "curl -fsSL .../install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
+#   ssh -t fleet "curl -fsSL .../install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
 #
 # Uses the OAuth client described in docs/installation.md, read from
 # ~/.config/fleet/tailscale.env unless TS_OAUTH_CLIENT_ID is already set.

@@ -3,7 +3,7 @@
 ## Daily use
 
 ```bash
-ssh personal@VPS_IP     # or work@
+ssh fleet-personal      # or fleet-work (see installation: SSH key and config)
 fleet                   # attach to the first mate
 ```
 
@@ -82,7 +82,7 @@ You can also pick an older generation from the boot menu.
 ### The first boot did not finish
 
 ```bash
-ssh root@VPS_IP
+ssh fleet
 journalctl -u fleet-bootstrap
 ```
 
