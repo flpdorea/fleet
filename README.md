@@ -19,18 +19,18 @@ The whole machine is declared in this flake: users, firewall, Tailscale, both Or
 ## Quick start
 
 1. Once per tailnet: generate a Tailscale access token and run `scripts/tailscale-bootstrap.sh` (see [Tailscale access](docs/installation.md#tailscale-access)).
-2. Let root accept your SSH key (NixOS disables password logins):
+2. Create a dedicated `~/.ssh/fleet` key, add the `fleet`, `fleet-personal` and `fleet-work` hosts to `~/.ssh/config` ([SSH key and config](docs/installation.md#ssh-key-and-config)), and let root accept the key (NixOS disables password logins):
    ```bash
-   ssh-copy-id -i ~/.ssh/id_ed25519.pub root@VPS_IP
+   ssh-copy-id -i ~/.ssh/fleet.pub fleet
    ```
 3. From this repo on your computer:
    ```bash
-   ssh -t root@VPS_IP "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
+   ssh -t fleet "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
    ```
    This **wipes the VPS** (it asks you to type `nixos` first), installs NixOS and reboots. On first boot, the machine applies this flake by itself.
 4. For each context:
    ```bash
-   ssh personal@VPS_IP
+   ssh fleet-personal
    fleet login    # git identity, GitHub, and the Pi (or Claude) login
    fleet pair     # link for the Orca app
    fleet          # talk to the first mate

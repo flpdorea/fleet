@@ -35,12 +35,52 @@ Once per tailnet, with a single browser step:
 
 `scripts/tailscale-authkey.sh` uses that file to mint a single-use, pre-approved key tagged `tag:fleet` that expires in an hour. Tagged devices are also exempt from key expiry, so the VPS does not drop off the tailnet after 180 days.
 
-### Per-VPS preparation
+### SSH key and config
 
-From your computer, copy only your own key (`install.sh` carries every key on root over to NixOS):
+Give the fleet its own key, with a passphrase. It opens root on a machine where agents run third-party code, and `install.sh` copies every key on root to root and to the context users on NixOS, so a shared key, or a CI or deploy key that happens to be in your agent, would end up with root there too.
 
 ```bash
-ssh-copy-id -i ~/.ssh/id_ed25519.pub root@VPS_IP
+ssh-keygen -t ed25519 -f ~/.ssh/fleet -C fleet
+```
+
+Then add three hosts to `~/.ssh/config`:
+
+```sshconfig
+# Root goes over the public IP: the only route until install.sh finishes.
+Host fleet
+  HostName VPS_IP
+  User root
+  IdentityFile ~/.ssh/fleet
+  IdentitiesOnly yes
+  AddKeysToAgent yes
+
+# The context users go over the tailnet (MagicDNS), so they keep working
+# if port 22 is ever closed to the internet.
+Host fleet-personal fleet-work
+  HostName fleet.YOUR-TAILNET.ts.net
+  IdentityFile ~/.ssh/fleet
+  IdentitiesOnly yes
+  AddKeysToAgent yes
+
+Host fleet-personal
+  User personal
+
+Host fleet-work
+  User work
+```
+
+| Setting | Why |
+|---|---|
+| `IdentitiesOnly yes` | Offers only `~/.ssh/fleet`, never the other keys in your agent. |
+| `AddKeysToAgent yes` | You type the passphrase once per session, not on every connection. |
+| `HostName fleet.YOUR-TAILNET.ts.net` | The machine joins the tailnet as `fleet` (`--hostname=fleet` in `nix/module.nix`). Your tailnet name is under **DNS** in the admin console. These two hosts only resolve after install. |
+
+### Per-VPS preparation
+
+From your computer, copy the fleet key to root. This is the one time you type the provider's root password:
+
+```bash
+ssh-copy-id -i ~/.ssh/fleet.pub fleet
 ```
 
 Install right after: until nixos-infect reboots, the provider's root password still works over SSH and the VNC console.
@@ -50,7 +90,7 @@ Install right after: until nixos-infect reboots, the provider's root password st
 From your computer, in this repo, so the Tailscale key is minted locally and never written down:
 
 ```bash
-ssh -t root@VPS_IP "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
+ssh -t fleet "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
 ```
 
 | Variant | Command |
@@ -73,7 +113,7 @@ ssh -t root@VPS_IP "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/
 The machine comes back as a minimal NixOS. The `fleet-bootstrap` service then switches it to the full configuration from this repo. SSH host keys are preserved, so you will not get a host key warning.
 
 ```bash
-ssh root@VPS_IP
+ssh fleet
 journalctl -fu fleet-bootstrap
 ```
 
@@ -91,7 +131,7 @@ If the bootstrap failed, see [operations](operations.md#the-first-boot-did-not-f
 ## Sign in, per context
 
 ```bash
-ssh personal@VPS_IP
+ssh fleet-personal
 fleet login
 ```
 
@@ -104,7 +144,7 @@ fleet login
 | Pi (`personal`) | Opens Pi. Run `/login`, choose the ChatGPT subscription (`openai-codex`), open the link in your browser and paste the final redirect URL back. Then `/quit`. |
 | Claude (`work`) | Opens Claude Code. Sign in with the work account, then `/exit`. |
 
-Steps that are already done are skipped, so `fleet login` is safe to rerun. Repeat as `work@VPS_IP`.
+Steps that are already done are skipped, so `fleet login` is safe to rerun. Repeat with `ssh fleet-work`.
 
 ## Pair the Orca app
 
