@@ -1,0 +1,29 @@
+# Keeps the tailnet's access policy equal to tailscale/policy.hujson:
+# tested on every pull request, applied when it lands on main. Edits made
+# in the admin console are overwritten by the next apply.
+name: tailscale
+
+on:
+  push:
+    branches: [main]
+    paths: [tailscale/policy.hujson, .github/workflows/tailscale.yml]
+  pull_request:
+    paths: [tailscale/policy.hujson, .github/workflows/tailscale.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: tailscale/gitops-acl-action@v1.5.2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tailnet: "-" # the tailnet that owns the OAuth client
+          policy-file: tailscale/policy.hujson
+          action: ${{ github.event_name == 'pull_request' && 'test' || 'apply' }}

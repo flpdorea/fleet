@@ -1,0 +1,44 @@
+// Tailnet access policy, applied by .github/workflows/tailscale.yml on merge
+// to main. Edits made in the admin console are overwritten by the next apply.
+{
+	// The fleet VPS joins with this tag (scripts/tailscale-authkey.sh), and
+	// tagged devices are exempt from node key expiry.
+	"tagOwners": {
+		"tag:fleet": ["autogroup:admin"],
+	},
+
+	"grants": [
+		// Only your own devices open connections. Tagged devices are not
+		// members, so the fleet VPS, where agents run code from repos and
+		// prompts, can answer connections but never start one to your laptop
+		// or phone.
+		{"src": ["autogroup:member"], "dst": ["*"], "ip": ["*"]},
+	],
+
+	"ssh": [
+		// Tailscale's default: members SSH into their own devices in check mode.
+		{
+			"action": "check",
+			"src":    ["autogroup:member"],
+			"dst":    ["autogroup:self"],
+			"users":  ["autogroup:nonroot", "root"],
+		},
+	],
+
+	"nodeAttrs": [
+		{
+			// Tailscale's default: members control Funnel for their own devices.
+			"target": ["autogroup:member"],
+			"attr":   ["funnel"],
+		},
+	],
+
+	"tests": [
+		{
+			// A tagged device gets no access as a source, not even to another
+			// fleet machine: SSH and both Orca ports stay closed to it.
+			"src":  "tag:fleet",
+			"deny": ["tag:fleet:22", "tag:fleet:6768", "tag:fleet:6769"],
+		},
+	],
+}
