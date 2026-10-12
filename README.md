@@ -18,14 +18,14 @@ The whole machine is declared in this flake: users, firewall, Tailscale, both Or
 
 ## Quick start
 
-1. Let root accept your SSH key (NixOS disables password logins):
+1. Once per tailnet: generate a Tailscale access token and run `scripts/tailscale-bootstrap.sh` (see [Tailscale access](docs/installation.md#tailscale-access)).
+2. Let root accept your SSH key (NixOS disables password logins):
    ```bash
-   ssh-copy-id root@VPS_IP
+   ssh-copy-id -i ~/.ssh/id_ed25519.pub root@VPS_IP
    ```
-2. Create a reusable, non-ephemeral [Tailscale auth key](https://login.tailscale.com/admin/settings/keys).
-3. On the VPS, as root:
+3. From this repo on your computer:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=tskey-auth-... bash
+   ssh -t root@VPS_IP "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
    ```
    This **wipes the VPS** (it asks you to type `nixos` first), installs NixOS and reboots. On first boot, the machine applies this flake by itself.
 4. For each context:
@@ -64,7 +64,11 @@ fleet/
 │   ├── contexts.nix          personal = pi :6768 · work = claude :6769
 │   ├── personal/config/      firstmate config: backend, crew-dispatch.json
 │   └── work/config/          firstmate config: backend, crew-dispatch.json, claude-permission-mode
-├── .github/workflows/nix.yml lock, lint and evaluate on every push
+├── tailscale/policy.hujson   tailnet access policy, applied by CI
+├── scripts/
+│   ├── tailscale-bootstrap.sh  one-time: policy, OAuth client, secrets
+│   └── tailscale-authkey.sh    mints the single-use install key
+├── .github/workflows/        nix.yml: lock, lint, evaluate · tailscale.yml: test and apply the policy
 └── docs/
 ```
 
