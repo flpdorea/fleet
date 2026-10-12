@@ -86,8 +86,8 @@ ssh fleet
 journalctl -u fleet-bootstrap
 ```
 
-- **Build error in the flake:** fix it in the repo (CI should have caught it), push, then run `nixos-rebuild switch --flake /etc/nixos#fleet` as root. Once that succeeds, run `mkdir -p /var/lib/fleet && touch /var/lib/fleet/bootstrapped` so the bootstrap does not run again.
-- **Network or cache timeout:** `systemctl restart fleet-bootstrap`. It keeps retrying until it succeeds once.
+- **Build error in the flake:** fix it in the repo (CI should have caught it) and push, then on the VPS run `nix --extra-experimental-features 'nix-command flakes' flake update fleet --flake /etc/nixos`. The service is retrying every 30 seconds and picks up the fix on its next attempt.
+- **Network or cache timeout:** nothing to do. It retries every 30 seconds until it succeeds once.
 - **Cannot SSH in at all:** use Contabo's VNC console. root's SSH keys come from `/etc/nixos/configuration.nix`.
 
 ## Removing a context

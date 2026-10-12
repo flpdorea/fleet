@@ -163,6 +163,9 @@ cat >/etc/nixos/fleet-bootstrap.nix <<'EOF'
     # The switch runs from inside this service; restarting it midway would kill the switch.
     restartIfChanged = false;
     path = [ config.system.build.nixos-rebuild config.nix.package pkgs.git pkgs.coreutils ];
+    # Boot into the full system instead of switching to it live: this unit is
+    # part of the configuration it applies, so a live switch waits on this
+    # unit's own start job and never returns.
     # A network or cache hiccup must not leave the machine half-installed
     # until someone reboots it: retry every 30 s, with no start limit.
     startLimitIntervalSec = 0;
@@ -174,10 +177,11 @@ cat >/etc/nixos/fleet-bootstrap.nix <<'EOF'
       RestartSec = 30;
     };
     script = ''
-      nixos-rebuild switch --flake /etc/nixos#fleet
+      nixos-rebuild boot --flake /etc/nixos#fleet
       mkdir -p /var/lib/fleet
       touch /var/lib/fleet/bootstrapped
-      echo "fleet: ready"
+      echo "fleet: ready, rebooting into the full system"
+      systemctl reboot
     '';
   };
 }
