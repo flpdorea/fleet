@@ -6,32 +6,51 @@
 |---|---|
 | A fresh Ubuntu or Debian VPS (x86_64 or aarch64) | `install.sh` converts it to NixOS with [nixos-infect](https://github.com/elitak/nixos-infect), which lists Contabo as supported. |
 | Enough memory | Contabo's Orca guide recommends 12 GB for one Orca server. Two servers plus workers need more. |
-| Your SSH public key on root | NixOS disables password logins. Without a key you would be locked out, so `install.sh` refuses to run. |
-| A Tailscale account and auth key | Orca is only reachable through your tailnet. |
+| Your SSH public key on root | NixOS disables password logins. Without a key you would be locked out, so `install.sh` refuses to run. Every key on root is copied to root and to the context users on NixOS, so copy only your own. |
+| A Tailscale account and an OAuth client | Orca is only reachable through your tailnet. The OAuth client lets CI apply the access policy and lets you mint the install key. |
 | This repo on GitHub, public | The VPS fetches `install.sh` and the flake from it. It contains no secrets. |
 
 ### One-time repo setup
 
 1. Push the repo to GitHub.
 2. In the repo: **Settings → Actions → General → Workflow permissions → Read and write**. CI needs this to commit `flake.lock`.
-3. Wait for the `nix` workflow to pass. It creates `flake.lock` and evaluates the whole NixOS configuration. **Do not install until it is green**, so a Nix error shows up in CI rather than on the VPS.
+3. Set up Tailscale (see [Tailscale access](#tailscale-access) below).
+4. Wait for the `nix` workflow to pass. It creates `flake.lock` and evaluates the whole NixOS configuration. **Do not install until it is green**, so a Nix error shows up in CI rather than on the VPS.
+
+### Tailscale access
+
+The agents on the VPS run code from repos and prompts you do not fully control, so the VPS joins the tailnet as `tag:fleet`. `tailscale/policy.hujson` lets your own devices reach it but gives tagged devices no rule as a source, so the VPS cannot open a connection to your laptop or phone. The `tailscale` workflow tests that file on every pull request and applies it on merge, overwriting edits made in the admin console.
+
+Once per tailnet, with a single browser step:
+
+1. **Settings → Keys → Generate access token**, expiring in 1 day. Save it without echoing it:
+   ```bash
+   mkdir -p ~/.config/fleet && (umask 077; read -rsp 'Access token: ' t; echo; printf '%s' "$t" > ~/.config/fleet/ts-api-token)
+   ```
+2. From this repo:
+   ```bash
+   scripts/tailscale-bootstrap.sh
+   ```
+   It applies `tailscale/policy.hujson` (which defines `tag:fleet`), creates an OAuth client scoped to `policy_file` and `auth_keys` for that tag, stores it in `~/.config/fleet/tailscale.env` and in the repo's `TS_OAUTH_CLIENT_ID` / `TS_OAUTH_SECRET` secrets, then revokes and deletes the access token.
+
+`scripts/tailscale-authkey.sh` uses that file to mint a single-use, pre-approved key tagged `tag:fleet` that expires in an hour. Tagged devices are also exempt from key expiry, so the VPS does not drop off the tailnet after 180 days.
 
 ### Per-VPS preparation
 
-From your computer:
+From your computer, copy only your own key (`install.sh` carries every key on root over to NixOS):
 
 ```bash
-ssh-copy-id root@VPS_IP
+ssh-copy-id -i ~/.ssh/id_ed25519.pub root@VPS_IP
 ```
 
-Create a Tailscale auth key at **Settings → Keys**: reusable, **not** ephemeral (an ephemeral node disappears from the tailnet when it goes offline).
+Install right after: until nixos-infect reboots, the provider's root password still works over SSH and the VNC console.
 
 ## Install
 
-On the VPS, as root:
+From your computer, in this repo, so the Tailscale key is minted locally and never written down:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=tskey-auth-... bash
+ssh -t root@VPS_IP "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
 ```
 
 | Variant | Command |
@@ -39,7 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS
 | One context only | add `FLEET_CONTEXTS=personal` before `bash` |
 | No confirmation prompt | add `FLEET_YES=1` before `bash` |
 | Different hostname | add `FLEET_HOSTNAME=name` before `bash` |
-| Without a Tailscale key | omit `TS_AUTHKEY`; run `tailscale up` as root after the reboot |
+| Without a Tailscale key | omit `TS_AUTHKEY`; run `tailscale up --advertise-tags=tag:fleet` as root after the reboot |
 
 ### What the script does
 
