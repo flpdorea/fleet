@@ -184,8 +184,12 @@ Then, for each context:
   ssh work@VPS_IP       fleet login   fleet pair
 
 EOF
+# doNetConf makes nixos-infect write the running network (addresses, gateway,
+# DNS) into networking.nix. It only does that for a few providers on its own;
+# elsewhere NixOS falls back to DHCP, which Contabo does not answer, and the
+# machine boots with no network and no SSH.
 curl -fsSL "https://raw.githubusercontent.com/elitak/nixos-infect/$INFECT_REV/nixos-infect" \
-  | NIXOS_IMPORT=./fleet-bootstrap.nix NIX_CHANNEL="$NIX_CHANNEL" bash
+  | doNetConf=y NIXOS_IMPORT=./fleet-bootstrap.nix NIX_CHANNEL="$NIX_CHANNEL" bash
 }
 
 main "$@"
