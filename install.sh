@@ -131,7 +131,7 @@ EOF
 cat >/etc/nixos/fleet-bootstrap.nix <<'EOF'
 # First boot: switch the freshly installed NixOS over to the flake in /etc/nixos.
 # Once it has succeeded, it never runs again (marker in /var/lib/fleet).
-{ config, lib, pkgs, ... }:
+{ config, lib, options, pkgs, ... }:
 {
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
@@ -147,6 +147,12 @@ cat >/etc/nixos/fleet-bootstrap.nix <<'EOF'
   # it: the machine's flake turns the systemd initrd back on, because the
   # scripted one is removed in 26.11.
   boot.initrd.systemd.enable = lib.mkDefault false;
+
+  # The leftover EFI partition of the cloud image gets auto-mounted on /boot
+  # and fails, which takes down dbus and blocks GRUB (see nix/module.nix).
+  # The fleet module sets this on the final system; the nixos-infect build
+  # does not include that module, so it needs it here.
+  boot.kernelParams = lib.optional (!(options ? fleet)) "systemd.gpt_auto=0";
 
   systemd.services.fleet-bootstrap = {
     description = "fleet: apply the flake on first boot";
