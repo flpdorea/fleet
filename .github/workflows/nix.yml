@@ -33,7 +33,7 @@ jobs:
         run: nix flake update
 
       - name: Shellcheck
-        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh
+        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh scripts/tailscale-authkey.sh scripts/tailscale-bootstrap.sh
 
       - name: Evaluate the whole NixOS configuration
         run: nix eval --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath
