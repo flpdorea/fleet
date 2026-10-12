@@ -94,6 +94,13 @@ in
       # no Nix package); nix-ld lets those generic Linux binaries run on NixOS.
       programs.nix-ld.enable = true;
 
+      # Cloud images (Contabo's Ubuntu among them) leave an EFI partition on
+      # the disk even though the machine boots GRUB from BIOS. systemd's
+      # gpt-auto generator then tries to mount it on /boot, fails, and leaves
+      # /boot dead: dbus-broker cannot set up its sandbox and GRUB cannot
+      # write its menu, so nixos-rebuild can neither activate nor install.
+      boot.kernelParams = [ "systemd.gpt_auto=0" ];
+
       environment.systemPackages =
         (with pkgs; [ git gh tmux jq curl nodejs_22 ])
         ++ [ agents.orca fleetCli fleetRebuild ]
