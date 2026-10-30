@@ -12,12 +12,13 @@ actions_app=15368 # GitHub Actions
 
 # Squash only; the squash commit is the pull request title (checked to be a
 # Conventional Commit by the pr workflow) with an empty body. Merged branches
-# are deleted.
+# are deleted, and the "Update branch" button is shown (it can rebase).
 gh api -X PATCH "repos/$repo" --silent \
   -F allow_squash_merge=true \
   -F allow_merge_commit=false \
   -F allow_rebase_merge=false \
   -F delete_branch_on_merge=true \
+  -F allow_update_branch=true \
   -f squash_merge_commit_title=PR_TITLE \
   -f squash_merge_commit_message=BLANK
 
@@ -35,7 +36,8 @@ if ! gh api "repos/$repo/keys" --jq '.[].title' | grep -qxF "$key_title"; then
 fi
 
 # main only changes through a squash-merged pull request whose required
-# checks pass, or through a deploy key.
+# checks pass on a branch up to date with main (so the merge cannot
+# conflict), or through a deploy key.
 ruleset=$(cat <<JSON
 {
   "name": "main",
@@ -57,7 +59,7 @@ ruleset=$(cat <<JSON
       "allowed_merge_methods": ["squash"]
     }},
     {"type": "required_status_checks", "parameters": {
-      "strict_required_status_checks_policy": false,
+      "strict_required_status_checks_policy": true,
       "required_status_checks": [
         {"context": "check", "integration_id": $actions_app},
         {"context": "policy", "integration_id": $actions_app},

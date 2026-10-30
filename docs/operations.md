@@ -18,7 +18,7 @@ The `orca-cli` and `orchestration` skills are installed for each harness, so an 
 ### This repo's config (contexts, skills, module)
 
 1. Edit, commit, push a branch and open a pull request. Its title must be a Conventional Commit (it becomes the squash commit on `main`) and its body must fill in the template.
-2. Squash-merge it once its checks pass; the ruleset blocks the merge until then.
+2. Squash-merge it once it is up to date with `main` and its checks pass; the ruleset blocks the merge until then. If `main` moved, rebase the branch (`git rebase origin/main`, or **Update branch → Update with rebase**) and let the checks rerun.
 3. On the VPS, as root:
    ```bash
    fleet rebuild
