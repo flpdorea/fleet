@@ -170,9 +170,10 @@ apply_ruleset main <<JSON
 JSON
 
 # Branches follow a few name patterns: the Orca worktree prefix (the owner's
-# login), a Conventional Commit type, or Dependabot's. A branch named like a
-# release tag (v1.2.3) cannot exist. People outside the repo push to their
-# forks, so this only binds the maintainer, the agents and the bots.
+# login), a Conventional Commit type, Dependabot's, or GitHub's Revert button's
+# (revert-123-...). A branch named like a release tag (v1.2.3) cannot exist.
+# People outside the repo push to their forks, so this only binds the
+# maintainer, the agents and the bots.
 apply_ruleset branch-names <<JSON
 {
   "name": "branch-names",
@@ -184,8 +185,9 @@ apply_ruleset branch-names <<JSON
       "~DEFAULT_BRANCH",
       "refs/heads/${repo%%/*}/**",
       "refs/heads/feat/**", "refs/heads/fix/**", "refs/heads/docs/**", "refs/heads/chore/**",
+      "refs/heads/perf/**", "refs/heads/build/**", "refs/heads/style/**", "refs/heads/revert/**",
       "refs/heads/ci/**", "refs/heads/refactor/**", "refs/heads/test/**",
-      "refs/heads/dependabot/**"
+      "refs/heads/dependabot/**", "refs/heads/revert-*"
     ]
   }},
   "rules": [{"type": "creation"}]
