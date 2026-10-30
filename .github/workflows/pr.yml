@@ -1,0 +1,52 @@
+# Checks every pull request against the repo's conventions. Both jobs are
+# required checks of the main ruleset (scripts/github-settings.sh), so a
+# pull request cannot merge until its title and body pass. Editing the
+# title or body reruns them.
+name: pr
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  title:
+    name: pr-title
+    runs-on: ubuntu-latest
+    steps:
+      # The title becomes the squash commit on main, so it must be a
+      # Conventional Commit: type(scope): summary, summary in lowercase.
+      - uses: amannn/action-semantic-pull-request@v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: The summary "{subject}" must start with a lowercase letter.
+
+  template:
+    name: pr-template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9.0.0
+        with:
+          script: |
+            // The headings of .github/pull_request_template.md that must not be left empty.
+            const required = ['What', 'Why', 'Testing'];
+            const body = (context.payload.pull_request.body || '').replace(/<!--[\s\S]*?-->/g, '');
+            const sections = {};
+            let current = null;
+            for (const line of body.split(/\r?\n/)) {
+              const heading = line.match(/^##\s+(.+?)\s*$/);
+              if (heading) {
+                current = heading[1];
+                sections[current] = '';
+              } else if (current) {
+                sections[current] += line.trim();
+              }
+            }
+            const missing = required.filter((h) => !sections[h]);
+            if (missing.length) {
+              core.setFailed(`Fill in these sections of the pull request template: ${missing.join(', ')}.`);
+            }

@@ -1,0 +1,64 @@
+# Checks that issues come from a template in .github/ISSUE_TEMPLATE with its
+# required fields filled. The forms enforce this in the browser; this catches
+# issues opened through the API or gh, and later edits. A failing issue gets a
+# comment saying what is missing, removed once it is fixed.
+name: issues
+
+on:
+  issues:
+    types: [opened, edited, reopened, labeled, unlabeled]
+
+permissions:
+  issues: write
+
+jobs:
+  template:
+    name: issue-template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9.0.0
+        with:
+          script: |
+            // Required fields of each form, keyed by the label the form applies.
+            const forms = {
+              bug: ['What happened', 'Expected behavior', 'Steps to reproduce'],
+              enhancement: ['Problem', 'Proposal'],
+            };
+            const marker = '<!-- issue-template-check -->';
+            const issue = context.payload.issue;
+
+            const sections = {};
+            let current = null;
+            for (const line of (issue.body || '').split(/\r?\n/)) {
+              const heading = line.match(/^###\s+(.+?)\s*$/);
+              if (heading) {
+                current = heading[1];
+                sections[current] = '';
+              } else if (current) {
+                sections[current] += line.trim();
+              }
+            }
+
+            let problem = null;
+            const label = issue.labels.map((l) => l.name).find((name) => name in forms);
+            if (!label) {
+              problem = 'Open issues from one of the templates (Bug or Feature).';
+            } else {
+              const missing = forms[label].filter((h) => !sections[h] || sections[h] === '_No response_');
+              if (missing.length) problem = `Fill in these fields of the template: ${missing.join(', ')}.`;
+            }
+
+            const params = { ...context.repo, issue_number: issue.number };
+            const comments = await github.paginate(github.rest.issues.listComments, params);
+            const previous = comments.find((c) => c.user.type === 'Bot' && c.body.startsWith(marker));
+            if (problem) {
+              const body = `${marker}\n${problem}`;
+              if (previous) {
+                await github.rest.issues.updateComment({ ...context.repo, comment_id: previous.id, body });
+              } else {
+                await github.rest.issues.createComment({ ...params, body });
+              }
+              core.setFailed(problem);
+            } else if (previous) {
+              await github.rest.issues.deleteComment({ ...context.repo, comment_id: previous.id });
+            }

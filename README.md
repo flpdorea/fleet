@@ -67,9 +67,12 @@ fleet/
 │   └── skills/               installed in ~/.claude/skills, with Anthropic's skill-creator
 ├── tailscale/policy.hujson   tailnet access policy, applied by CI
 ├── scripts/
+│   ├── github-settings.sh      one-time: squash-only merges, the main ruleset
 │   ├── tailscale-bootstrap.sh  one-time: policy, OAuth client, secrets
 │   └── tailscale-authkey.sh    mints the single-use install key
-├── .github/workflows/        nix.yml: lock, lint, evaluate · tailscale.yml: test and apply the policy
+├── .github/
+│   ├── workflows/            nix: lock, lint, evaluate · tailscale: test, apply the policy · pr, issues: check titles and templates
+│   └── ISSUE_TEMPLATE/       bug and feature forms, next to pull_request_template.md
 └── docs/
 ```
 
