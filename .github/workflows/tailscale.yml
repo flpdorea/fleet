@@ -3,6 +3,10 @@
 # in the admin console are overwritten by the next apply. Pull requests run
 # the test even when they leave the policy alone: it is a required check, and
 # a required check that never reports blocks the merge.
+#
+# The two jobs use different OAuth clients (scripts/tailscale-bootstrap.sh).
+# The test only reads the policy, with a repo secret. The apply job writes
+# it, with secrets of the tailscale environment, which only main can use.
 name: tailscale
 
 on:
@@ -17,7 +21,32 @@ permissions:
 
 jobs:
   policy:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Pull requests from forks get no secrets. The check passes for them,
+      # and a maintainer tests a policy change from a fork on a branch here.
+      - name: Skip the test on forks
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: 'echo "::notice::Pull request from a fork: the policy test needs secrets and was skipped."'
+
+      - uses: tailscale/gitops-acl-action@5a4a17f5708e9bf96f4ee915a95e9f83c2eebe1a # v1.5.2
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        with:
+          oauth-client-id: ${{ secrets.TS_POLICY_TEST_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_POLICY_TEST_SECRET }}
+          tailnet: "-" # the tailnet that owns the OAuth client
+          policy-file: tailscale/policy.hujson
+          action: test
+
+  apply:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: tailscale
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,6 +56,6 @@ jobs:
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tailnet: "-" # the tailnet that owns the OAuth client
+          tailnet: "-"
           policy-file: tailscale/policy.hujson
-          action: ${{ github.event_name == 'pull_request' && 'test' || 'apply' }}
+          action: apply

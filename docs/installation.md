@@ -13,7 +13,7 @@
 ### One-time repo setup
 
 1. Push the repo to GitHub.
-2. Run `scripts/github-settings.sh` (needs `gh` logged in as a repo admin). It allows only squash merges, uses the pull request title as the commit title and its body as the commit body, deletes merged branches, and adds a ruleset so `main` only changes through a pull request that is up to date with `main` (rebase it, or use **Update branch**) and whose CI passes: `nix`, `tailscale`, and the `pr` workflow that checks the title is a Conventional Commit and the template is filled in. It also creates the write deploy key, stored in the `FLAKE_LOCK_DEPLOY_KEY` secret, that the `nix` workflow uses to push `flake.lock`: deploy keys are the only actor allowed to bypass the ruleset.
+2. Run `scripts/github-settings.sh` (needs `gh` logged in as a repo admin). It allows only squash merges, uses the pull request title as the commit title and its body as the commit body, deletes merged branches, and adds a ruleset so `main` only changes through a pull request that is up to date with `main` (rebase it, or use **Update branch**) and whose CI passes: `nix`, `tailscale`, and the `pr` workflow that checks the title is a Conventional Commit and the template is filled in. It also creates the `deploy` and `tailscale` environments, which only workflow runs on `main` can use, so no pull request ever sees their secrets, and the write deploy key, stored in the `deploy` environment as `DEPLOY_KEY`, that the `nix` workflow uses to push `flake.lock`: deploy keys are the only actor allowed to bypass the ruleset.
 3. Set up Tailscale (see [Tailscale access](#tailscale-access) below).
 4. Wait for the `nix` workflow to pass. It creates `flake.lock` and evaluates the whole NixOS configuration. **Do not install until it is green**, so a Nix error shows up in CI rather than on the VPS.
 
@@ -31,7 +31,7 @@ Once per tailnet, with a single browser step:
    ```bash
    scripts/tailscale-bootstrap.sh
    ```
-   It applies `tailscale/policy.hujson` (which defines `tag:fleet`), creates an OAuth client scoped to `policy_file` and `auth_keys` for that tag, stores it in `~/.config/fleet/tailscale.env` and in the repo's `TS_OAUTH_CLIENT_ID` / `TS_OAUTH_SECRET` secrets, then revokes and deletes the access token.
+   It applies `tailscale/policy.hujson` (which defines `tag:fleet`), creates two OAuth clients and stores both in `~/.config/fleet/tailscale.env`, then revokes and deletes the access token. The read-write client, scoped to `policy_file` and `auth_keys` for that tag, goes to the `tailscale` environment as `TS_OAUTH_CLIENT_ID` / `TS_OAUTH_SECRET`: CI applies the policy with it on `main`. The read-only client, scoped to `policy_file:read`, goes to the repo secrets `TS_POLICY_TEST_CLIENT_ID` / `TS_POLICY_TEST_SECRET`: pull requests test the policy with it. Pull requests from forks get no secrets and skip the test. Run it after `scripts/github-settings.sh`; rerunning it only creates the clients missing from that file.
 
 `scripts/tailscale-authkey.sh` uses that file to mint a single-use, pre-approved key tagged `tag:fleet` that expires in an hour. Tagged devices are also exempt from key expiry, so the VPS does not drop off the tailnet after 180 days.
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Applies the repo's merge settings and the ruleset that protects main.
+# Applies the repo's merge settings, the ruleset that protects main, the
+# environments that hold the secrets workflows on main use, and the deploy key.
 # Safe to rerun: it overwrites what it manages and leaves the rest alone.
 #
 #   scripts/github-settings.sh [owner/repo]
@@ -22,17 +23,39 @@ gh api -X PATCH "repos/$repo" --silent \
   -f squash_merge_commit_title=PR_TITLE \
   -f squash_merge_commit_message=PR_BODY
 
+# Environments hold the secrets that can change things: the deploy key
+# (deploy) and Tailscale's read-write OAuth client (tailscale, filled by
+# scripts/tailscale-bootstrap.sh). Only workflow runs on main can use them,
+# so a pull request, even from a branch of this repo, never sees them.
+for env in deploy tailscale; do
+  gh api -X PUT "repos/$repo/environments/$env" --input - --silent <<<'{
+    "deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}
+  }'
+  if ! gh api "repos/$repo/environments/$env/deployment-branch-policies" \
+    --jq '.branch_policies[].name' | grep -qxF main; then
+    gh api -X POST "repos/$repo/environments/$env/deployment-branch-policies" \
+      -f name=main -f type=branch --silent
+  fi
+done
+
 # The nix workflow pushes flake.lock updates to main with this deploy key.
 # A ruleset on a personal repo cannot let GitHub Actions bypass it, but it
 # can let deploy keys bypass it, so this key is the only way around the PR
-# requirement. The private half lives only in the FLAKE_LOCK_DEPLOY_KEY secret.
-key_title="flake.lock (nix workflow)"
-if ! gh api "repos/$repo/keys" --jq '.[].title' | grep -qxF "$key_title"; then
+# requirement. The private half lives only in the deploy environment's
+# DEPLOY_KEY secret; when that secret is missing, a new key replaces any old one.
+key_title="deploy (workflows on main)"
+if ! gh secret list --repo "$repo" --env deploy --json name --jq '.[].name' | grep -qxF DEPLOY_KEY; then
+  gh api "repos/$repo/keys" --jq '.[] | select(.title == "'"$key_title"'" or .title == "flake.lock (nix workflow)") | .id' |
+    while read -r id; do gh api -X DELETE "repos/$repo/keys/$id" --silent; done
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
   ssh-keygen -q -t ed25519 -N '' -C "$key_title" -f "$tmp/key"
-  gh secret set FLAKE_LOCK_DEPLOY_KEY --repo "$repo" <"$tmp/key"
+  gh secret set DEPLOY_KEY --repo "$repo" --env deploy <"$tmp/key"
   gh repo deploy-key add "$tmp/key.pub" --repo "$repo" --allow-write --title "$key_title" >/dev/null
+fi
+# Left over from before the deploy environment existed.
+if gh secret list --repo "$repo" --json name --jq '.[].name' | grep -qxF FLAKE_LOCK_DEPLOY_KEY; then
+  gh secret delete FLAKE_LOCK_DEPLOY_KEY --repo "$repo"
 fi
 
 # main only changes through a squash-merged pull request whose required
