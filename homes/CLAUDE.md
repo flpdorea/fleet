@@ -16,12 +16,14 @@
 - You may commit, push and open a draft PR without asking once a task is done. Never commit to the default branch: create a branch first.
 - Never amend a pushed commit, rewrite published history or force-push. Fix things with a new commit. The one exception: the `--force-with-lease` pushes `gh stack` does when it rebases a stack.
 - Keep PRs small: one reviewable concern each. Split anything bigger into a stack of PRs, planned before coding, and manage it with `gh stack` (see the `gh-stack` skill), never by just pointing one branch's PR at another. Merge a stack as a whole.
+- After opening a PR or pushing to one, use the `pr-babysit` skill: watch its CI and reviews until green, fix what the change broke, and escalate to me what needs a human decision.
 - PR bodies: when the repository has a pull request template (such as `.github/pull_request_template.md`), fill it in. Otherwise keep the body short: what changed and why.
 - No AI attribution in commits or PRs: no `Co-Authored-By` trailer and no "Generated with" line.
 
 ## Review
 
 - After a worthwhile implementation, before calling it done, use the `auto-review` skill: a second Claude agent, started through Orca orchestration, reviews the diff and you fix what it finds.
+- Any change that can alter what users see in a web UI is not done until it passes the `visual-validation` skill: a second Claude agent, started through Orca orchestration (a subagent outside Orca), compares before and after across viewports, color schemes and states, and the before/after screenshots go into the PR body.
 
 ## Self-improvement
 
