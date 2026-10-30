@@ -59,9 +59,11 @@ fleet/
 ├── nix/
 │   ├── module.nix            the machine: users, Orca, Tailscale, firewall, services
 │   ├── fleet.sh              the fleet command (packaged by Nix)
-│   └── setup-user.sh         installs Orca's skills, removes firstmate leftovers
+│   └── setup-user.sh         installs Orca's skills and Claude settings, removes firstmate leftovers
 ├── homes/
-│   └── contexts.nix          personal = claude :6768 · work = claude :6769
+│   ├── contexts.nix          personal = claude :6768 · work = claude :6769
+│   ├── claude-settings.json  merged into each user's ~/.claude/settings.json
+│   └── CLAUDE.md             installed as each user's ~/.claude/CLAUDE.md
 ├── tailscale/policy.hujson   tailnet access policy, applied by CI
 ├── scripts/
 │   ├── tailscale-bootstrap.sh  one-time: policy, OAuth client, secrets

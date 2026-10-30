@@ -6,6 +6,8 @@ Every change follows the same path: edit, commit, push, wait for CI, then run `f
 |---|---|
 | A context's harness or Orca port | `homes/contexts.nix` |
 | Which Orca skills are installed | `nix/setup-user.sh` |
+| Claude Code settings (`work`) | `homes/claude-settings.json` |
+| Claude Code global instructions (`work`) | `homes/CLAUDE.md` |
 | Packages, firewall, services | `nix/module.nix` |
 | Pinned versions | `flake.lock` (`nix flake update`, or let CI do it) |
 | Which contexts this machine runs, SSH keys | `/etc/nixos/fleet.nix` on the VPS |
@@ -44,7 +46,24 @@ That installs Orca's own skills globally for the harness (`~/.claude/skills` for
 
 `orca skills list` shows the other bundled skills (Linear, emulators, per-workspace environments). To add one, add another `--skill` to `nix/setup-user.sh`.
 
-Which model and effort a worker gets is the coordinator's call when it spawns it through the `orca` CLI. To steer it, say so in your request or in the harness's global instructions (`~/.claude/CLAUDE.md` for Claude Code).
+Which model and effort a worker gets is the coordinator's call when it spawns it through the `orca` CLI. To steer it, say so in your request or in the harness's global instructions (`homes/CLAUDE.md`, installed as `~/.claude/CLAUDE.md`, for Claude Code).
+
+## Claude Code settings
+
+For contexts whose harness is `claude`, `fleet-setup-<ctx>` merges `homes/claude-settings.json` into `~/.claude/settings.json`. It merges instead of replacing because Orca writes its hooks and status line to the same file. Keys set in the repo win on every rebuild, so a `/config` change to one of them lasts only until the next rebuild; keys the repo doesn't set stay as the user left them. Removing a key from the repo doesn't remove it from the user's file.
+
+| Key | Why |
+|---|---|
+| `attribution: false` | No `Co-Authored-By` trailer on commits, no "Generated with Claude Code" line in PR descriptions, no session link. |
+| `spinnerTipsEnabled: false` | No feature tips under the spinner while Claude works. |
+| `feedbackSurveyRate: 0` | No session quality survey. |
+| `cleanupPeriodDays: 365` | Keep transcripts, and so `/resume`, for a year instead of the default 30 days. |
+
+Auto-updates need no setting: the Nix package's wrapper already sets `DISABLE_AUTOUPDATER=1`, and `flake.lock` decides the version.
+
+The same service copies `homes/CLAUDE.md` to `~/.claude/CLAUDE.md`, the instructions every Claude Code session of that user reads: language, style, and the git rules (Conventional Commits, when to commit, push and open PRs, no AI attribution). That file belongs to the repo and is replaced on every rebuild, so edit it here, not on the VPS.
+
+Every key is documented in the [settings reference](https://code.claude.com/docs/en/settings-reference).
 
 ## Adding a context
 
