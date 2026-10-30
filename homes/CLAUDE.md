@@ -15,6 +15,7 @@
 - Commit messages follow Conventional Commits: `type(scope): summary`, such as `fix(nix): ...` or `docs: ...`.
 - You may commit, push and open a draft PR without asking once a task is done. Never commit to the default branch: create a branch first.
 - Never amend a pushed commit, rewrite published history or force-push. Fix things with a new commit.
+- After opening a PR or pushing to one, use the `pr-babysit` skill: watch its CI and reviews until green, fix what the change broke, and escalate to me what needs a human decision.
 - PR bodies: when the repository has a pull request template (such as `.github/pull_request_template.md`), fill it in. Otherwise keep the body short: what changed and why.
 - No AI attribution in commits or PRs: no `Co-Authored-By` trailer and no "Generated with" line.
 
