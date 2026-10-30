@@ -110,5 +110,5 @@ jobs:
             const open = repository.pullRequest.closingIssuesReferences.nodes
               .filter((i) => i.state === 'OPEN' && i.repository.nameWithOwner === here);
             if (!open.length) {
-              core.setFailed('Link an open issue of this repo: add "Closes #123" to the body. See CONTRIBUTING.md.');
+              core.setFailed('Link an open issue of this repo: add "Closes #123" to the body, which reruns this check. Linking from the sidebar does not rerun it; edit the pull request or push afterwards. See CONTRIBUTING.md.');
             }
