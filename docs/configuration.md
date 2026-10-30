@@ -9,6 +9,7 @@ Every change follows the same path: edit, commit, push, wait for CI, then run `f
 | Claude Code settings (`work`) | `homes/claude-settings.json` |
 | Claude Code global instructions (`work`) | `homes/CLAUDE.md` |
 | Claude Code skills | `homes/skills/` |
+| Default language runtimes (mise) | `homes/mise.toml` |
 | Packages, firewall, services | `nix/module.nix` |
 | Pinned versions | `flake.lock` (`nix flake update`, or let CI do it) |
 | Which contexts this machine runs, SSH keys | `/etc/nixos/fleet.nix` on the VPS |
@@ -71,6 +72,7 @@ The same service also installs these skills in `~/.claude/skills`, replacing eac
 | Skill | Source | What it gives the agent |
 |---|---|---|
 | `self-improve` | `homes/skills/self-improve` | How to change its own setup: a PR to this repo editing `homes/CLAUDE.md`, `homes/claude-settings.json` or `homes/skills/`, never `~/.claude` directly. |
+| `mise` | `homes/skills/mise` | Language runtimes through mise: installing what a project pins, one-off versions, NixOS caveats, and changing the defaults in `homes/mise.toml` by PR. |
 | `auto-review` | `homes/skills/auto-review` | After a non-trivial implementation, start a second Claude agent through Orca orchestration to review the diff read-only, then verify and fix its findings before reporting. `homes/CLAUDE.md` tells Claude to use it without being asked. |
 | `skill-creator` | [anthropics/skills](https://github.com/anthropics/skills/tree/main/skills/skill-creator), pinned by the `anthropic-skills` input in `flake.lock` | Anthropic's guide and scripts for writing, testing and tuning skills. `self-improve` uses it for new skills. |
 
@@ -79,6 +81,28 @@ The same service also installs these skills in `~/.claude/skills`, replacing eac
 To add a skill by hand, create `homes/skills/<name>/SKILL.md`.
 
 Every key is documented in the [settings reference](https://code.claude.com/docs/en/settings-reference).
+
+## Language runtimes
+
+Runtimes come from [mise](https://mise.jdx.dev), not from Nix: each project can pin its own versions (`mise.toml`, `.tool-versions`, `.nvmrc`, `.python-version`...), which Nix packages can't follow per worktree. `homes/mise.toml` is installed as `/etc/mise/config.toml`, and `fleet-setup-<ctx>` runs `mise install` as each user, so these defaults are ready on every rebuild:
+
+| Tool | Version |
+|---|---|
+| Node | `lts` (follows the current LTS line) |
+| Python | `3.15` |
+| Ruby | `4.0` |
+| Go | `1.27` |
+| Java | `temurin-25` (LTS) |
+| Rust | `stable` |
+
+The same file sets two things the machine needs:
+
+- `all_compile = false`: nixpkgs builds mise to compile every runtime from source, which fails on NixOS. The upstream prebuilt binaries run through `nix-ld` instead.
+- `trusted_config_paths = ["~/orca/workspaces"]`: agents open fresh worktrees there, and mise would otherwise refuse each new `mise.toml` until someone runs `mise trust`. Anything a repo's `mise.toml` declares (env vars, tasks) is trusted as a result.
+
+The shims directory (`~/.local/share/mise/shims`) comes first in the PATH of login shells and of the Orca servers, so agents get the right version in non-interactive shells without `mise activate`. `gcc`, `make` and `pkg-config` are installed system-wide for native extensions and for linking Rust.
+
+To change a default, edit `[tools]` in `homes/mise.toml`; the `mise` skill tells Claude to do it by PR. Versions a user adds with `mise use -g` live in their `~/.config/mise/config.toml` and survive rebuilds.
 
 ## Adding a context
 

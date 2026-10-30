@@ -21,7 +21,7 @@ let
 
   setupScript = pkgs.writeShellApplication {
     name = "fleet-setup-user";
-    runtimeInputs = (with pkgs; [ coreutils gnused gnugrep jq procps git bash nodejs_22 ]) ++ [ agents.orca ];
+    runtimeInputs = (with pkgs; [ coreutils gnused gnugrep jq procps git bash nodejs_22 mise ]) ++ [ agents.orca ];
     text = builtins.readFile ./setup-user.sh;
   };
 
@@ -33,7 +33,8 @@ let
     cp -r ${anthropic-skills}/skills/skill-creator $out/
   '';
 
-  userPath = ctx: "/home/${ctx}/.local/bin:/home/${ctx}/.npm-global/bin:/run/wrappers/bin:/run/current-system/sw/bin";
+  # mise shims come first so project and default runtimes win over nodejs_22.
+  userPath = ctx: "/home/${ctx}/.local/share/mise/shims:/home/${ctx}/.local/bin:/home/${ctx}/.npm-global/bin:/run/wrappers/bin:/run/current-system/sw/bin";
 in
 {
   options.fleet = {
@@ -101,15 +102,20 @@ in
       boot.kernelParams = [ "systemd.gpt_auto=0" ];
 
       environment.systemPackages =
-        (with pkgs; [ git gh tmux jq curl nodejs_22 ])
+        (with pkgs; [ git gh tmux jq curl nodejs_22 mise gcc gnumake pkg-config ])
         ++ [ agents.orca fleetCli ]
         ++ lib.unique (lib.mapAttrsToList (_: c: primaryPkg.${c.primary}) contexts);
 
-      # Per-user PATH and global npm prefix, no sudo needed.
+      # Per-user PATH (mise shims first) and global npm prefix, no sudo needed.
       environment.extraInit = ''
-        export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
+        export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
         export NPM_CONFIG_PREFIX="$HOME/.npm-global"
       '';
+
+      # Language runtimes: mise, configured system-wide (homes/mise.toml) and
+      # installed per user by fleet-setup-<ctx>. gcc and make are for native
+      # extensions and for linking Rust.
+      environment.etc."mise/config.toml".source = ../homes/mise.toml;
 
       environment.etc."fleet/contexts.json".text = builtins.toJSON contexts;
 

@@ -1,0 +1,20 @@
+# System-wide mise config, installed as /etc/mise/config.toml. Each context
+# user's ~/.config/mise/config.toml and project files (mise.toml,
+# .tool-versions, .nvmrc, .python-version...) override it.
+
+[settings]
+# nixpkgs builds mise to compile every runtime from source, which fails on
+# NixOS. nix-ld (nix/module.nix) runs the upstream prebuilt binaries instead.
+all_compile = false
+# Agents work in fresh Orca worktrees; trust their mise.toml without a prompt.
+trusted_config_paths = ["~/orca/workspaces"]
+
+# Default runtimes, installed for every context by fleet-setup-<ctx>.
+# Bump a line here when a new LTS or stable release comes out.
+[tools]
+node = "lts"
+python = "3.15"
+ruby = "4.0"
+go = "1.27"
+java = "temurin-25"
+rust = "stable"
