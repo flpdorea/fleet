@@ -64,7 +64,7 @@ fleet/
 │   ├── claude-settings.json  merged into each user's ~/.claude/settings.json
 │   ├── CLAUDE.md             installed as each user's ~/.claude/CLAUDE.md
 │   ├── mise.toml             default language runtimes, installed as /etc/mise/config.toml
-│   └── skills/               installed in ~/.claude/skills, with Anthropic's skill-creator
+│   └── skills/               installed in ~/.claude/skills, with skill-creator and lavish
 ├── tailscale/policy.hujson   tailnet access policy, applied by CI
 ├── scripts/
 │   ├── github-settings.sh      one-time: squash-only merges, the main ruleset
@@ -87,5 +87,5 @@ fleet/
 
 ## Known limits
 
-- Orca's skills come from the Orca repo through `npx skills`, not from the Nix store, so they are the only part not pinned by `flake.lock`.
+- Orca's skills come from the Orca repo through `npx skills`, and the `lavish` skill runs the latest `lavish-axi` CLI through `npx`; those are the only parts not pinned by `flake.lock`.
 - Each Orca server uses a fair amount of memory. Contabo's guide recommends 12 GB for one; with two servers and several workers, size up.

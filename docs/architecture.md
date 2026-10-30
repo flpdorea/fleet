@@ -78,6 +78,7 @@ Machine-wide: `sshd`, `tailscaled`, the firewall, `nix-ld`, weekly Nix garbage c
 | nixos-infect | Commit hard-coded in `install.sh` |
 | Orca skills | **Not pinned.** `orca skills install` fetches them from the Orca repo. |
 | Anthropic's `skill-creator` | `anthropic-skills` in `flake.lock` |
+| Lavish's `lavish` skill | `lavish-axi` in `flake.lock`. The `lavish-axi` CLI it runs through `npx` is **not pinned**. |
 
 The machine's own `/etc/nixos/flake.lock` records which commit of this repo it runs. `fleet rebuild` moves it to the latest commit.
 

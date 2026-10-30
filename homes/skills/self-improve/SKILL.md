@@ -13,7 +13,7 @@ Your global setup is not yours to edit in place. It is declared in the fleet rep
 | Settings | `homes/claude-settings.json` | merged into `~/.claude/settings.json` |
 | Skills | `homes/skills/<name>/` | `~/.claude/skills/<name>/` |
 
-Anthropic's `skill-creator` and Orca's `orca-cli` and `orchestration` skills are installed by the same service but not stored in `homes/skills`; don't copy them there.
+Anthropic's `skill-creator`, Lavish's `lavish` and Orca's `orca-cli` and `orchestration` skills are installed by the same service but not stored in `homes/skills`; don't copy them there.
 
 So every change to yourself is a pull request to fleet. The user reviews and merges it, then runs `fleet-rebuild` as root on the VPS to apply it.
 

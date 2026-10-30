@@ -1,4 +1,4 @@
-{ self, llm-agents, anthropic-skills }:
+{ self, llm-agents, anthropic-skills, lavish-axi }:
 { config, lib, pkgs, ... }:
 
 let
@@ -25,12 +25,13 @@ let
     text = builtins.readFile ./setup-user.sh;
   };
 
-  # Skills installed globally for Claude Code contexts: ours (homes/skills)
-  # and Anthropic's skill-creator, pinned by the anthropic-skills input.
+  # Skills installed globally for Claude Code contexts: ours (homes/skills),
+  # Anthropic's skill-creator and Lavish's skill, pinned by their inputs.
   claudeSkills = pkgs.runCommand "fleet-claude-skills" { } ''
     mkdir -p $out
     cp -r ${../homes/skills}/. $out/
     cp -r ${anthropic-skills}/skills/skill-creator $out/
+    cp -r ${lavish-axi}/skills/lavish $out/
   '';
 
   # mise shims come first so project and default runtimes win over nodejs_22.
