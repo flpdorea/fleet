@@ -13,9 +13,9 @@
 ### One-time repo setup
 
 1. Push the repo to GitHub.
-2. In the repo: **Settings → Actions → General → Workflow permissions → Read and write**. CI needs this to commit `flake.lock`.
+2. In the repo: **Settings → Actions → General → Workflow permissions**, tick **Allow GitHub Actions to create and approve pull requests**. The `versions` workflow needs it to open the pull requests that update `flake.lock`.
 3. Set up Tailscale (see [Tailscale access](#tailscale-access) below).
-4. Wait for the `nix` workflow to pass. It creates `flake.lock` and evaluates the whole NixOS configuration. **Do not install until it is green**, so a Nix error shows up in CI rather than on the VPS.
+4. Wait for the `nix` workflow to pass. It evaluates the whole NixOS configuration. **Do not install until it is green**, so a Nix error shows up in CI rather than on the VPS.
 
 ### Tailscale access
 
@@ -153,6 +153,35 @@ fleet pair
 ```
 
 It prints that context's pairing link. On your Mac or phone, with Tailscale connected: **Orca → Settings → Remote Orca Servers → Add Server**, name it (`fleet personal`) and paste the link. Repeat for `work`. Treat these links like passwords.
+
+## Deploys from CI
+
+The `deploy` workflow applies merged pull requests to the VPS. It needs a key of its own, which `fleet.deployKeys` restricts to running `fleet-rebuild`. Once per VPS:
+
+1. Create the key, without a passphrase (CI cannot type one):
+   ```bash
+   ssh-keygen -t ed25519 -N '' -f ~/.ssh/fleet-deploy -C fleet-deploy
+   ```
+2. On the VPS, as root, add its public key to `/etc/nixos/fleet.nix` and apply it:
+   ```nix
+   fleet.deployKeys = [ "ssh-ed25519 AAAA... fleet-deploy" ];
+   ```
+   ```bash
+   fleet-rebuild
+   ```
+3. Store the key and the VPS address in the repo's secrets. The host key is read over your own SSH connection, so CI never trusts an unverified key:
+   ```bash
+   gh secret set VPS_HOST --body VPS_IP
+   gh secret set VPS_DEPLOY_KEY < ~/.ssh/fleet-deploy
+   printf 'VPS_IP %s\n' "$(ssh fleet cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)" | gh secret set VPS_KNOWN_HOSTS
+   ```
+4. Delete the private key locally; the secret is its only copy:
+   ```bash
+   rm ~/.ssh/fleet-deploy ~/.ssh/fleet-deploy.pub
+   ```
+5. Test it with **Actions → deploy → Run workflow**.
+
+To revoke it, remove it from `fleet.deployKeys` and run `fleet-rebuild`.
 
 ## First run
 

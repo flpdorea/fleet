@@ -1,0 +1,41 @@
+# Applies main to the VPS when a pull request that changes its configuration
+# is merged: SSH in as root with a key that can only run fleet-rebuild
+# (fleet.deployKeys in nix/module.nix), so this job cannot open a shell there.
+# Orca servers are not restarted; see docs/operations.md.
+name: deploy
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths: [flake.nix, flake.lock, nix/**, homes/**]
+  workflow_dispatch:
+
+permissions: {}
+
+# One rebuild at a time; a merge during a rebuild waits for it.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Run fleet-rebuild on the VPS
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" >~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" >~/.ssh/known_hosts
+          # No remote command: the key's forced command is fleet-rebuild.
+          ssh -T -i ~/.ssh/deploy \
+            -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            "root@$HOST"

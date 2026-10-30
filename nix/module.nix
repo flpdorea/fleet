@@ -23,7 +23,9 @@ let
     runtimeInputs = [ config.system.build.nixos-rebuild pkgs.nix pkgs.git ];
     text = ''
       [ "$(id -u)" -eq 0 ] || { echo "fleet-rebuild: run as root" >&2; exit 1; }
-      nix flake update fleet --flake /etc/nixos
+      # --refresh: otherwise Nix may reuse a branch lookup up to an hour old
+      # and rebuild the commit before the one just merged.
+      nix flake update fleet --refresh --flake /etc/nixos
       exec nixos-rebuild switch --flake /etc/nixos#fleet "$@"
     '';
   };
@@ -52,6 +54,16 @@ in
       description = "SSH public keys accepted for the context users.";
     };
 
+    deployKeys = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = ''
+        SSH public keys that log in as root but can only run fleet-rebuild
+        (the deploy workflow). They get no shell, PTY or forwarding, and the
+        command they send is ignored.
+      '';
+    };
+
     tailscaleAuthKeyFile = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
@@ -74,6 +86,9 @@ in
       nixpkgs.config.allowUnfree = true;
 
       # Only SSH is open to the internet; Orca is reachable through the tailnet only.
+      users.users.root.openssh.authorizedKeys.keys =
+        map (k: ''restrict,command="${fleetRebuild}/bin/fleet-rebuild" ${k}'') cfg.deployKeys;
+
       services.openssh = {
         enable = true;
         settings.PasswordAuthentication = false;
