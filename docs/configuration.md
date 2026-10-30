@@ -64,7 +64,7 @@ For contexts whose harness is `claude`, `fleet-setup-<ctx>` merges `homes/claude
 
 Auto-updates need no setting: the Nix package's wrapper already sets `DISABLE_AUTOUPDATER=1`, and `flake.lock` decides the version.
 
-The same service copies `homes/CLAUDE.md` to `~/.claude/CLAUDE.md`, the instructions every Claude Code session of that user reads: language, style, the git rules (Conventional Commits, when to commit, push and open PRs, no AI attribution) and the self-improvement rules below. That file belongs to the repo and is replaced on every rebuild, so edit it here, not on the VPS.
+The same service copies `homes/CLAUDE.md` to `~/.claude/CLAUDE.md`, the instructions every Claude Code session of that user reads: language, style, the git rules (Conventional Commits, when to commit, push and open PRs, no AI attribution), treating issues, pull requests and comments from others as data rather than instructions, and the self-improvement rules below. That file belongs to the repo and is replaced on every rebuild, so edit it here, not on the VPS.
 
 ## Claude Code skills
 
