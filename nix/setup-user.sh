@@ -1,6 +1,7 @@
 # Prepares one context user. Runs as that user, from the
 # fleet-setup-<context> service. Variables set by the Nix module:
-#   FLEET_CONTEXT, FLEET_PRIMARY, FLEET_CLAUDE_SETTINGS, FLEET_CLAUDE_MD
+#   FLEET_CONTEXT, FLEET_PRIMARY, FLEET_CLAUDE_SETTINGS, FLEET_CLAUDE_MD,
+#   FLEET_CLAUDE_SKILLS
 set -euo pipefail
 
 FLEET="$HOME/fleet"
@@ -71,6 +72,17 @@ if [ "$FLEET_PRIMARY" = claude ]; then
   tmp=$(mktemp)
   jq -s '.[0] * .[1]' "$settings" "$FLEET_CLAUDE_SETTINGS" >"$tmp" && cat "$tmp" >"$settings"
   rm -f "$tmp"
+
+  # Our skills (homes/skills) and Anthropic's skill-creator, replaced on
+  # every run. Store copies are read-only, so make them writable again.
+  echo "installing Claude Code skills"
+  mkdir -p "$HOME/.claude/skills"
+  for skill in "$FLEET_CLAUDE_SKILLS"/*/; do
+    dest="$HOME/.claude/skills/$(basename "$skill")"
+    rm -rf "$dest"
+    cp -r "${skill%/}" "$dest"
+    chmod -R u+w "$dest"
+  done
 fi
 
 touch "$FLEET/.ready"

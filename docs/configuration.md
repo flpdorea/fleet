@@ -8,6 +8,7 @@ Every change follows the same path: edit, commit, push, wait for CI, then run `f
 | Which Orca skills are installed | `nix/setup-user.sh` |
 | Claude Code settings (`work`) | `homes/claude-settings.json` |
 | Claude Code global instructions (`work`) | `homes/CLAUDE.md` |
+| Claude Code skills | `homes/skills/` |
 | Packages, firewall, services | `nix/module.nix` |
 | Pinned versions | `flake.lock` (`nix flake update`, or let CI do it) |
 | Which contexts this machine runs, SSH keys | `/etc/nixos/fleet.nix` on the VPS |
@@ -61,7 +62,20 @@ For contexts whose harness is `claude`, `fleet-setup-<ctx>` merges `homes/claude
 
 Auto-updates need no setting: the Nix package's wrapper already sets `DISABLE_AUTOUPDATER=1`, and `flake.lock` decides the version.
 
-The same service copies `homes/CLAUDE.md` to `~/.claude/CLAUDE.md`, the instructions every Claude Code session of that user reads: language, style, and the git rules (Conventional Commits, when to commit, push and open PRs, no AI attribution). That file belongs to the repo and is replaced on every rebuild, so edit it here, not on the VPS.
+The same service copies `homes/CLAUDE.md` to `~/.claude/CLAUDE.md`, the instructions every Claude Code session of that user reads: language, style, the git rules (Conventional Commits, when to commit, push and open PRs, no AI attribution) and the self-improvement rules below. That file belongs to the repo and is replaced on every rebuild, so edit it here, not on the VPS.
+
+## Claude Code skills
+
+The same service also installs these skills in `~/.claude/skills`, replacing each one on every rebuild. Removing a skill from the repo doesn't remove it from the user's directory.
+
+| Skill | Source | What it gives the agent |
+|---|---|---|
+| `self-improve` | `homes/skills/self-improve` | How to change its own setup: a PR to this repo editing `homes/CLAUDE.md`, `homes/claude-settings.json` or `homes/skills/`, never `~/.claude` directly. |
+| `skill-creator` | [anthropics/skills](https://github.com/anthropics/skills/tree/main/skills/skill-creator), pinned by the `anthropic-skills` input in `flake.lock` | Anthropic's guide and scripts for writing, testing and tuning skills. `self-improve` uses it for new skills. |
+
+`homes/CLAUDE.md` makes this a loop: when you give the same instruction more than twice, across sessions too (Claude keeps count in its memory), Claude suggests turning it into a skill or a rule, and opens the PR only after you approve. The change takes effect once you merge it and run `fleet-rebuild`.
+
+To add a skill by hand, create `homes/skills/<name>/SKILL.md`.
 
 Every key is documented in the [settings reference](https://code.claude.com/docs/en/settings-reference).
 

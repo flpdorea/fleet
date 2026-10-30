@@ -62,7 +62,8 @@ fleet/
 ├── homes/
 │   ├── contexts.nix          personal = claude :6768 · work = claude :6769
 │   ├── claude-settings.json  merged into each user's ~/.claude/settings.json
-│   └── CLAUDE.md             installed as each user's ~/.claude/CLAUDE.md
+│   ├── CLAUDE.md             installed as each user's ~/.claude/CLAUDE.md
+│   └── skills/               installed in ~/.claude/skills, with Anthropic's skill-creator
 ├── tailscale/policy.hujson   tailnet access policy, applied by CI
 ├── scripts/
 │   ├── tailscale-bootstrap.sh  one-time: policy, OAuth client, secrets

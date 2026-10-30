@@ -1,4 +1,4 @@
-{ self, llm-agents }:
+{ self, llm-agents, anthropic-skills }:
 { config, lib, pkgs, ... }:
 
 let
@@ -24,6 +24,14 @@ let
     runtimeInputs = (with pkgs; [ coreutils gnused gnugrep jq procps git bash nodejs_22 ]) ++ [ agents.orca ];
     text = builtins.readFile ./setup-user.sh;
   };
+
+  # Skills installed globally for Claude Code contexts: ours (homes/skills)
+  # and Anthropic's skill-creator, pinned by the anthropic-skills input.
+  claudeSkills = pkgs.runCommand "fleet-claude-skills" { } ''
+    mkdir -p $out
+    cp -r ${../homes/skills}/. $out/
+    cp -r ${anthropic-skills}/skills/skill-creator $out/
+  '';
 
   userPath = ctx: "/home/${ctx}/.local/bin:/home/${ctx}/.npm-global/bin:/run/wrappers/bin:/run/current-system/sw/bin";
 in
@@ -135,12 +143,13 @@ in
           wantedBy = [ "multi-user.target" ];
           wants = [ "network-online.target" ];
           after = [ "network-online.target" ];
-          restartTriggers = [ agents.orca self.outPath ];
+          restartTriggers = [ agents.orca self.outPath claudeSkills ];
           environment = {
             FLEET_CONTEXT = ctx;
             FLEET_PRIMARY = c.primary;
             FLEET_CLAUDE_SETTINGS = "${../homes/claude-settings.json}";
             FLEET_CLAUDE_MD = "${../homes/CLAUDE.md}";
+            FLEET_CLAUDE_SKILLS = "${claudeSkills}";
             NPM_CONFIG_PREFIX = "/home/${ctx}/.npm-global";
           };
           path = [ setupScript ];
