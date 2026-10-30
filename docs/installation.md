@@ -13,7 +13,7 @@
 ### One-time repo setup
 
 1. Push the repo to GitHub.
-2. Run `scripts/github-settings.sh` (needs `gh` logged in as a repo admin). It allows only squash merges, uses the pull request title as the commit message, deletes merged branches, and adds a ruleset so `main` only changes through a pull request that is up to date with `main` (rebase it, or use **Update branch**) and whose CI passes: `nix`, `tailscale`, and the `pr` workflow that checks the title is a Conventional Commit and the template is filled in. It also creates the write deploy key, stored in the `FLAKE_LOCK_DEPLOY_KEY` secret, that the `nix` workflow uses to push `flake.lock`: deploy keys are the only actor allowed to bypass the ruleset.
+2. Run `scripts/github-settings.sh` (needs `gh` logged in as a repo admin). It allows only squash merges, uses the pull request title as the commit title and its commit messages as the body, deletes merged branches, and adds a ruleset so `main` only changes through a pull request that is up to date with `main` (rebase it, or use **Update branch**) and whose CI passes: `nix`, `tailscale`, and the `pr` workflow that checks the title is a Conventional Commit and the template is filled in. It also creates the write deploy key, stored in the `FLAKE_LOCK_DEPLOY_KEY` secret, that the `nix` workflow uses to push `flake.lock`: deploy keys are the only actor allowed to bypass the ruleset.
 3. Set up Tailscale (see [Tailscale access](#tailscale-access) below).
 4. Wait for the `nix` workflow to pass. It creates `flake.lock` and evaluates the whole NixOS configuration. **Do not install until it is green**, so a Nix error shows up in CI rather than on the VPS.
 
