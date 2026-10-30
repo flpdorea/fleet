@@ -6,26 +6,26 @@
 |---|---|
 | Orca's `orchestration` and `orca-cli` skills | Installed globally for each context's harness. They turn the agent you talk to (the coordinator) into a supervisor that dispatches tasks to worker agents in Orca, messages them and waits on their results. |
 | [Orca](https://github.com/stablyai/orca) | Owns each worker's git worktree and terminal. Runs headless on the VPS (`orca-ide serve`); the Orca app on your Mac or phone is just a client. |
-| Pi | The `personal` harness. Uses GPT-5.6 models through the ChatGPT subscription (`openai-codex` provider). |
-| Claude Code | The `work` harness. Uses Claude Opus 5.5 and Fable 5.1. |
+| Pi | Optional alternative harness (`primary = "pi"`). Uses GPT-5.6 models through the ChatGPT subscription (`openai-codex` provider). |
+| Claude Code | The harness of both contexts, each with its own account. Uses Claude Opus 5.5 and Fable 5.1. |
 | NixOS + this flake | Declares the whole machine and pins every version. |
 | Tailscale | Private network between the VPS and your devices. Orca is only reachable through it. |
 
 ## How a request flows
 
 ```
- you ──ssh──▶ personal@vps ──▶ tmux "fleet" ──────▶ pi (coordinator)
+ you ──ssh──▶ personal@vps ──▶ tmux "fleet" ──────▶ claude (coordinator)
                                                        │ orca CLI (orchestration skill)
                                                        ▼
                                    orca-serve-personal (port 6768)
-                                     ├─ worktree + terminal ─▶ pi worker  (Terra/Sol)
-                                     ├─ worktree + terminal ─▶ pi worker
+                                     ├─ worktree + terminal ─▶ claude worker  (Opus/Fable)
+                                     ├─ worktree + terminal ─▶ claude worker
                                      └─ ...
                                                        ▲
  Orca app on Mac/phone ──tailnet──────────────────────┘  (watch, type into terminals)
 ```
 
-The `work` context is the same picture with the `work` user, Claude Code and port 6769.
+The `work` context is the same picture with the `work` user, its own Claude account and port 6769.
 
 1. You SSH in as a context user and run `fleet`, which attaches to a tmux session running that context's harness in the home directory.
 2. You ask the coordinator for something. Its `orchestration` skill has it break the work into tasks and dispatch them through the `orca` CLI.
