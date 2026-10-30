@@ -22,7 +22,7 @@ Use `agent-browser` (installed system-wide, wrapped with its own Chromium from N
 ## Steps
 
 1. **Commit first.** Commit the finished work on its branch and push it, so the worker sees a stable diff. Note the base, usually `origin/<default branch>`, and the branch's slug (`/` replaced by `-`). The validator works in `~/.cache/visual-validation/<slug>/`: `base/` for the base worktree, `shots/` for screenshots and the report. It is per user, since contexts share `/tmp`.
-2. **Work out how to run the app.** From the project's README, scripts, `run` skill or your own session: the install command, the dev or preview server command, its port flag, required env, seed data or a test login. Screenshots end up in the repository, so plan on seed or fake data, never production data. If the app needs secrets you don't have, ask the user before going further.
+2. **Work out how to run the app.** From the project's README, scripts, `run` skill or your own session: the install command, the dev or preview server command, its port flag, required env, seed data or a test login. Screenshots end up in the PR, so plan on seed or fake data, never production data. If the app needs secrets you don't have, ask the user before going further.
 3. **Load the orchestration guide.** Follow the `orchestration` skill: resolve the CLI and run `ORCA skills get orchestration`. Its commands and flags win over anything here.
 4. **Start the validator.**
 
@@ -35,15 +35,20 @@ Use `agent-browser` (installed system-wide, wrapped with its own Chromium from N
 5. **Wait.** Use the guide's `check --wait` loop for `worker_done`, `escalation` and `question`. Answer questions; a timeout is a checkpoint, not a failure. Don't edit UI files while it runs.
 6. **Settle.** Read the report and look at the screenshots it flags yourself; then `worker-release` the validator and acknowledge the delivery as the guide says.
 7. **Fix and re-run.** Verify each failure against the code and the screenshots; the validator can be wrong. Fix the real ones in a new commit, push, and run steps 4 to 6 again, since a visual fix needs a new look. Stop after three rounds and report what is still failing instead of looping.
-8. **Publish the screenshots.** First check `gh repo view --json visibility`: if the repository is public, ask the user before publishing, since the images stay in its history for good. Look at what you publish; leave out any shot that shows secrets or personal data. Then, from the repository:
+8. **Put them in the PR body.** Open the draft PR if there is none. Look at what you publish; leave out any shot that shows secrets or personal data. Write the body to a file inside `~/.cache/visual-validation/<slug>/shots/`, with a `### Visual validation` subsection inside the section where the template asks how the change was tested (or a `## Visual validation` section at the end when there is no template), following the layout below. Reference each screenshot by its path relative to that file, then let `gh` upload them:
 
    ```bash
-   bash ~/.claude/skills/visual-validation/scripts/upload-screenshots.sh ~/.cache/visual-validation/<slug>/shots <slug>
+   cd ~/.cache/visual-validation/<slug>/shots
+   gh pr edit <number> -R <owner/repo> --body-file body.md --attach ./before/<name>.png --attach ./after/<name>.png ...
    ```
 
-   It commits the images to the `pr-screenshots` branch of the same repository (never to the PR branch, so the diff stays clean) and prints a base URL pinned to that commit. Embed each file as `![<alt>](<base URL>/<path>?raw=true)`. File names are limited to `[a-z0-9-]` so they need no URL encoding. GitHub renders these in PR bodies, private repositories included, for anyone who can read the repo. The branch grows with every PR's images and a full clone fetches it; that is the trade-off for keeping the PR diff clean.
-9. **Write it into the PR body.** Open the draft PR if there is none. Put a `### Visual validation` subsection inside the section where the template asks how the change was tested (or a `## Visual validation` section at the end when there is no template), following the layout below, then update the body with `gh pr edit --body-file`. Re-runs replace the section, not append to it.
-10. **Report.** In a line or two: the verdict, what failed and what you fixed, and anything you rejected with a reason.
+   `--attach` (gh 2.103 or later) uploads each file to GitHub's attachment storage, like dragging it into the web editor, and rewrites every `![alt](./before/<name>.png)` that matches into the uploaded URL. Nothing is committed, so the diff stays clean, and the images follow the repository's visibility. The same flag works on `gh pr create`, `gh pr comment` and the `gh issue` commands. Rules it imposes:
+   - At most 50 files per command. With more, attach the first 50, read the body back (`gh pr view <number> --json body -q .body > body.md`, in the same directory), and edit again with the next 50; references already rewritten stay as they are.
+   - gh parses the body as Markdown and only rewrites references Markdown sees as images. A line glued to an HTML tag (`<details>`, `<summary>`, `</details>`) is part of the HTML block, so its references are not rewritten and the file is appended at the end of the body instead. Keep a blank line after `<summary>...</summary>` and before and after `</details>`, and never put the images in HTML (`<img>`, `<table>`).
+   - An attached file the body doesn't reference is appended at the end. Attach only what the body references.
+
+   Then check the result: `gh pr view <number> --json body -q .body` must have no `](./` left and no images appended after the last section. Re-runs replace the section, not append to it.
+9. **Report.** In a line or two: the verdict, what failed and what you fixed, and anything you rejected with a reason.
 
 ## Validator spec
 
@@ -62,7 +67,7 @@ Run the app twice, side by side:
   install and start it on port <port A>.
 - after: in <repo path>, start it on port <port B>.
 How to run it: <install command, server command, port flag, env, seed data, login>.
-Use seed or fake data only; screenshots get published in the repository.
+Use seed or fake data only; screenshots get published in the PR.
 
 Browser: agent-browser only, never Orca's embedded browser. Read
 `agent-browser skills get core --full` first. Use one session per app and
@@ -108,21 +113,22 @@ Delete screenshots the report doesn't reference. Then send worker_done with
 
 ## PR body layout
 
-Lead with the verdict and the matrix that was covered, then one collapsible block per page so the body stays readable. Keep the body under GitHub's 65,536-character limit; if it would not fit, embed the failing and most relevant shots and link the rest by their folder URL.
+Lead with the verdict and the matrix that was covered, then one collapsible block per page so the body stays readable. Mind the blank lines around the HTML tags; without them `--attach` can't rewrite the references. Keep the body under GitHub's 65,536-character limit, and if the matrix needs more than 50 screenshots, attach in batches as step 8 describes.
 
 ```markdown
 ### Visual validation
 
 PASS: <n> views across desktop, tablet and mobile, light and dark. No regressions in <pages checked for regressions>.
 
-<details><summary>Checkout form, error state</summary>
+<details>
+<summary>Checkout form, error state</summary>
 
 | Config | Before | After |
 |---|---|---|
-| Desktop, light | ![before](<url>?raw=true) | ![after](<url>?raw=true) |
-| Mobile, dark | ![before](<url>?raw=true) | ![after](<url>?raw=true) |
+| Desktop, light | ![Checkout error, desktop light, before](./before/checkout-error-desktop-light.png) | ![Checkout error, desktop light, after](./after/checkout-error-desktop-light.png) |
+| Mobile, dark | ![Checkout error, mobile dark, before](./before/checkout-error-mobile-dark.png) | ![Checkout error, mobile dark, after](./after/checkout-error-mobile-dark.png) |
 
 </details>
 ```
 
-A new page gets a single `After` column. Mention failures that are still open above the tables, each with its screenshot.
+A new page gets a single `After` column. Mention failures that are still open above the tables, each with its after screenshot and, when it helps, the pixel diff from `diff/`.
