@@ -54,7 +54,7 @@ The full walkthrough, including what to watch during the first boot, is in [docs
 ```
 fleet/
 ├── flake.nix                 inputs: nixpkgs 26.05, llm-agents.nix, firstmate
-├── flake.lock                every pinned version (maintained by CI)
+├── flake.lock                every pinned version (updated by pull requests from CI)
 ├── install.sh                Ubuntu/Debian → NixOS, via nixos-infect
 ├── nix/
 │   ├── module.nix            the machine: users, Orca, Tailscale, firewall, services
@@ -67,8 +67,10 @@ fleet/
 ├── tailscale/policy.hujson   tailnet access policy, applied by CI
 ├── scripts/
 │   ├── tailscale-bootstrap.sh  one-time: policy, OAuth client, secrets
+│   ├── versions.sh             compares pinned and latest versions, keeps the version issues
 │   └── tailscale-authkey.sh    mints the single-use install key
-├── .github/workflows/        nix.yml: lock, lint, evaluate · tailscale.yml: test and apply the policy
+├── .github/workflows/        nix.yml: lint, evaluate · deploy.yml: rebuild the VPS on merge
+│                             versions.yml: version issues and update PRs · tailscale.yml: test and apply the policy
 └── docs/
 ```
 

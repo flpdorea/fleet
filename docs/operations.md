@@ -17,25 +17,28 @@ firstmate's own commands work inside the session, for example `/bearings` for a 
 
 ### This repo's config (routing, contexts, module)
 
-1. Edit, commit and push.
+1. Edit on a branch and open a pull request. Never push to `main`.
 2. Wait for the `nix` workflow to pass.
-3. On the VPS, as root:
-   ```bash
-   fleet-rebuild
-   ```
+3. Merge. If the pull request touches `flake.nix`, `flake.lock`, `nix/` or `homes/`, the `deploy` workflow runs `fleet-rebuild` on the VPS.
 
 `fleet-rebuild` updates the machine's `fleet` input to the latest commit and switches to it. `fleet-setup-<ctx>` reruns when the repo or the firstmate pin changed, so new config lands in each firstmate checkout.
 
+To deploy without a merge (for example after a failed run), use **Actions → deploy → Run workflow**, or run `fleet-rebuild` as root on the VPS. Deploys need the one-time setup in [installation](installation.md#deploys-from-ci).
+
 ### Versions (NixOS, Orca, Pi, Claude Code, firstmate)
 
-CI runs `nix flake update` every Monday and commits the new `flake.lock` if the configuration still evaluates. To update now, run the workflow manually (**Actions → nix → Run workflow**), or locally:
+The `versions` workflow compares `flake.lock` with the latest version of each tool every day and keeps one issue open per tool that is behind (label `versions`). Newer versions retitle the issue instead of opening another. To see the same comparison locally: `scripts/versions.sh`.
 
-```bash
-nix flake update            # everything
-nix flake update firstmate  # just one input
-```
+To update, run **Actions → versions → Run workflow** and pick the input the issue names:
 
-Then push and run `fleet-rebuild`.
+| Input | Updates |
+|---|---|
+| `llm-agents` | Claude Code, Orca and Pi together: they come from the same input |
+| `firstmate` | firstmate |
+| `nixpkgs` | NixOS and system packages |
+| `all` | everything |
+
+It updates `flake.lock`, checks that the configuration evaluates and opens a pull request (`versions/<input>`) that closes the matching issues. Merging it deploys. Running it again before merging refreshes the same pull request.
 
 ### Restarting Orca after an update
 

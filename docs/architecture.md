@@ -82,7 +82,9 @@ Machine-wide: `sshd`, `tailscaled`, the firewall, `nix-ld`, weekly Nix garbage c
 | nixos-infect | Commit hard-coded in `install.sh` |
 | `no-mistakes`, `*-axi` tools | **Not pinned.** Installed by firstmate at runtime. |
 
-The machine's own `/etc/nixos/flake.lock` records which commit of this repo it runs. `fleet-rebuild` moves it to the latest commit.
+The machine's own `/etc/nixos/flake.lock` records which commit of this repo it runs. `fleet-rebuild` moves it to the latest commit; the `deploy` workflow runs it when a pull request that changes the configuration is merged.
+
+The `versions` workflow checks every day whether the inputs above have something newer and keeps one issue open per tool that is behind. Updates land through pull requests, like any other change.
 
 ## Security model
 
@@ -92,4 +94,5 @@ The machine's own `/etc/nixos/flake.lock` records which commit of this repo it r
 - **Users** have no sudo. Workers run as their context user, so a misbehaving agent cannot change the system or read the other context's files.
 - **Claude workers** in `work` run in Claude Code's `auto` permission mode (classifier-reviewed) instead of bypass mode, set by `homes/work/config/claude-permission-mode`.
 - **Pi workers** in `personal` are pinned to the `openai-codex` provider by `config/pi-account`, so they cannot fall back to a paid API key signed in on the same machine.
+- **Deploys.** The `deploy` workflow logs in as root with a key from `fleet.deployKeys`, which `nix/module.nix` restricts to running `fleet-rebuild`: no shell, PTY or forwarding, and the command it sends is ignored. A leaked key can only apply what is already on `main`.
 - **Secrets.** The repo holds no secrets. The Tailscale key lives in `/etc/nixos/secrets/` outside the Nix store; all logins are created on the machine.

@@ -1,6 +1,6 @@
 # Configuration
 
-Every change follows the same path: edit, commit, push, wait for CI, then run `fleet-rebuild` as root on the VPS.
+Every change follows the same path: a branch and a pull request. CI checks it, and merging it deploys it to the VPS (see [operations](operations.md#updating)).
 
 | I want to change | File |
 |---|---|
@@ -8,8 +8,8 @@ Every change follows the same path: edit, commit, push, wait for CI, then run `f
 | A context's harness or Orca port | `homes/contexts.nix` |
 | Any other firstmate setting | a new file in `homes/<ctx>/config/` |
 | Packages, firewall, services | `nix/module.nix` |
-| Pinned versions | `flake.lock` (`nix flake update`, or let CI do it) |
-| Which contexts this machine runs, SSH keys | `/etc/nixos/fleet.nix` on the VPS |
+| Pinned versions | `flake.lock`, through the `versions` workflow (see [operations](operations.md#versions-nixos-orca-pi-claude-code-firstmate)) |
+| Which contexts this machine runs, SSH keys, the deploy key | `/etc/nixos/fleet.nix` on the VPS |
 
 ## Contexts
 
