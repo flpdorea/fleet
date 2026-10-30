@@ -1,17 +1,16 @@
-# Keeps flake.lock (every pinned version) current and checks that the
-# NixOS configuration evaluates before you run fleet-rebuild on the VPS.
+# Checks that the scripts pass shellcheck and the NixOS configuration
+# evaluates, so a broken change shows up here rather than on the VPS.
+# Pinned versions are updated by pull requests from the versions workflow.
 name: nix
 
 on:
   push:
     branches: [main]
   pull_request:
-  schedule:
-    - cron: "17 9 * * 1" # Monday morning: bump versions
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   check:
@@ -25,26 +24,10 @@ jobs:
             extra-substituters = https://cache.numtide.com
             extra-trusted-public-keys = niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=
 
-      - name: Lock versions (creates flake.lock if missing)
-        run: nix flake lock
-
-      - name: Update versions (scheduled or manual)
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        run: nix flake update
-
       - name: Shellcheck
-        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh scripts/tailscale-authkey.sh scripts/tailscale-bootstrap.sh
+        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh scripts/tailscale-authkey.sh scripts/tailscale-bootstrap.sh scripts/versions.sh
 
+      # --no-update-lock-file: fail if flake.nix needs a lock entry that is
+      # not committed, instead of evaluating versions the VPS would not get.
       - name: Evaluate the whole NixOS configuration
-        run: nix eval --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath
-
-      - name: Publish flake.lock
-        if: github.event_name != 'pull_request'
-        run: |
-          if [ -n "$(git status --porcelain flake.lock)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add flake.lock
-            git commit -m "flake.lock: update pinned versions"
-            git push
-          fi
+        run: nix eval --no-update-lock-file --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath

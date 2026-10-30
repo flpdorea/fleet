@@ -1,0 +1,95 @@
+# Dependabot for the flake inputs. Every day, scripts/versions.sh keeps one
+# issue open per tool that has a newer version than flake.lock pins. Running
+# this workflow by hand with an input opens a pull request that updates it;
+# merging that pull request deploys it and closes the issues.
+name: versions
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  # Closes the issues as soon as an update lands.
+  push:
+    branches: [main]
+    paths: [flake.lock]
+  workflow_dispatch:
+    inputs:
+      update:
+        description: Input to update in a pull request (check = only refresh the issues)
+        type: choice
+        options: [check, llm-agents, firstmate, nixpkgs, all]
+        default: check
+
+jobs:
+  issues:
+    if: github.event_name != 'workflow_dispatch' || inputs.update == 'check'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: DeterminateSystems/nix-installer-action@v23
+        with:
+          extra-conf: |
+            extra-substituters = https://cache.numtide.com
+            extra-trusted-public-keys = niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=
+
+      - name: Open, update and close the version issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/versions.sh --issues
+
+  update:
+    if: github.event_name == 'workflow_dispatch' && inputs.update != 'check'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: DeterminateSystems/nix-installer-action@v23
+        with:
+          extra-conf: |
+            extra-substituters = https://cache.numtide.com
+            extra-trusted-public-keys = niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=
+
+      - name: Update the input
+        env:
+          INPUT: ${{ inputs.update }}
+        run: |
+          if [ "$INPUT" = all ]; then nix flake update; else nix flake update "$INPUT"; fi
+          if git diff --quiet flake.lock; then
+            echo "::notice::$INPUT is already up to date"
+          fi
+
+      # Pull requests opened with the workflow token do not trigger the nix
+      # workflow, so the check it would run happens here instead.
+      - name: Evaluate the whole NixOS configuration
+        run: nix eval --no-update-lock-file --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath
+
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT: ${{ inputs.update }}
+        run: |
+          git diff --quiet flake.lock && exit 0
+          branch="versions/$INPUT"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "flake.lock: update $INPUT"
+          git push --force origin "$branch"
+
+          closes=$(gh issue list --label versions --state open --limit 100 --json number,body,title \
+            --jq "map(select(\"$INPUT\" == \"all\" or (.body | contains(\"input=$INPUT \")))) | .[] | \"- Closes #\(.number): \(.title)\"")
+          body="Updates \`$INPUT\` in \`flake.lock\`. The NixOS configuration evaluates with it; merging deploys it to the VPS.
+
+          ${closes:-No open version issue for this input.}"
+          if [ "$(gh pr view "$branch" --json state --jq .state 2>/dev/null)" = OPEN ]; then
+            gh pr edit "$branch" --body "$body"
+          else
+            gh pr create --base main --head "$branch" --title "flake.lock: update $INPUT" --body "$body"
+          fi
