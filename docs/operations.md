@@ -17,8 +17,8 @@ The `orca-cli` and `orchestration` skills are installed for each harness, so an 
 
 ### This repo's config (contexts, skills, module)
 
-1. Edit, commit and push.
-2. Wait for the `nix` workflow to pass.
+1. Edit, commit, push a branch and open a pull request. Its title must be a Conventional Commit (it becomes the squash commit on `main`) and its body must fill in the template.
+2. Squash-merge it once its checks pass; the ruleset blocks the merge until then.
 3. On the VPS, as root:
    ```bash
    fleet rebuild

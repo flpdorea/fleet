@@ -33,11 +33,12 @@ jobs:
         run: nix flake update
 
       - name: Shellcheck
-        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh scripts/tailscale-authkey.sh scripts/tailscale-bootstrap.sh
+        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh scripts/tailscale-authkey.sh scripts/tailscale-bootstrap.sh scripts/github-settings.sh
 
       - name: Evaluate the whole NixOS configuration
         run: nix eval --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath
 
+      # Pushes straight to main: the ruleset lets GitHub Actions bypass it.
       - name: Publish flake.lock
         if: github.event_name != 'pull_request'
         run: |
@@ -45,6 +46,6 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add flake.lock
-            git commit -m "flake.lock: update pinned versions"
+            git commit -m "chore(nix): update pinned versions"
             git push
           fi

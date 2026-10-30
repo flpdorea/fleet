@@ -14,8 +14,9 @@
 
 1. Push the repo to GitHub.
 2. In the repo: **Settings → Actions → General → Workflow permissions → Read and write**. CI needs this to commit `flake.lock`.
-3. Set up Tailscale (see [Tailscale access](#tailscale-access) below).
-4. Wait for the `nix` workflow to pass. It creates `flake.lock` and evaluates the whole NixOS configuration. **Do not install until it is green**, so a Nix error shows up in CI rather than on the VPS.
+3. Run `scripts/github-settings.sh` (needs `gh` logged in as a repo admin). It allows only squash merges, uses the pull request title as the commit message, deletes merged branches, and adds a ruleset so `main` only changes through a pull request whose CI passes: `nix`, `tailscale`, and the `pr` workflow that checks the title is a Conventional Commit and the template is filled in. GitHub Actions bypasses the ruleset to push `flake.lock`.
+4. Set up Tailscale (see [Tailscale access](#tailscale-access) below).
+5. Wait for the `nix` workflow to pass. It creates `flake.lock` and evaluates the whole NixOS configuration. **Do not install until it is green**, so a Nix error shows up in CI rather than on the VPS.
 
 ### Tailscale access
 
