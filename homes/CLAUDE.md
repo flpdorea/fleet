@@ -14,7 +14,8 @@
 
 - Commit messages follow Conventional Commits: `type(scope): summary`, such as `fix(nix): ...` or `docs: ...`.
 - You may commit, push and open a draft PR without asking once a task is done. Never commit to the default branch: create a branch first.
-- Never amend a pushed commit, rewrite published history or force-push. Fix things with a new commit.
+- Never amend a pushed commit, rewrite published history or force-push. Fix things with a new commit. The one exception: the `--force-with-lease` pushes `gh stack` does when it rebases a stack.
+- Keep PRs small: one reviewable concern each. Split anything bigger into a stack of PRs, planned before coding, and manage it with `gh stack` (see the `gh-stack` skill), never by just pointing one branch's PR at another. Merge a stack as a whole.
 - PR bodies: when the repository has a pull request template (such as `.github/pull_request_template.md`), fill it in. Otherwise keep the body short: what changed and why.
 - No AI attribution in commits or PRs: no `Co-Authored-By` trailer and no "Generated with" line.
 

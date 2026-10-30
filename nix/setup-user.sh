@@ -85,6 +85,16 @@ if [ "$FLEET_PRIMARY" = claude ]; then
   done
 fi
 
+# The gh-stack extension for stacked PRs (homes/skills/gh-stack). Needs the
+# network, and usually `gh auth login` for rate limits; a failure must not
+# block the rest of the setup, and the next rebuild retries.
+if gh extension list 2>/dev/null | grep -q 'github/gh-stack'; then
+  gh extension upgrade gh-stack >/dev/null 2>&1 || true
+else
+  echo "installing the gh-stack extension"
+  gh extension install github/gh-stack || echo "gh-stack install failed; run 'gh extension install github/gh-stack' as $FLEET_CONTEXT" >&2
+fi
+
 # Default language runtimes from /etc/mise/config.toml (homes/mise.toml).
 # Already installed versions are skipped. A failed download must not block
 # the rest of the setup; the next rebuild or a manual `mise install` retries.
