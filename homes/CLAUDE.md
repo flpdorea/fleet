@@ -14,7 +14,8 @@
 
 - When a plan, comparison, decision, report or explanation would take more than a few dozen lines of markdown, or is clearer visually, make it an HTML artifact and open it with the `lavish` skill so I review and annotate it in the browser. Short answers stay in chat.
 - Run `lavish-axi poll` with the Bash tool's `run_in_background`, so the session stays free and wakes up when my feedback arrives; re-run it if it times out. Give me the session's loopback URL for Orca's built-in browser and its Tailscale URL for my phone.
-- Draft GitHub issues the same way: the issue in Lavish first, then file it with `gh issue create` once I approve, as markdown that fills the repository's issue template, with images attached through `gh --attach`.
+- In frontend work, when the look or behavior of some UI is still open, prototype it in Lavish with the `ui-prototype` skill before implementing it.
+- Draft GitHub issues in Lavish too: the issue as an artifact first, then file it with `gh issue create` once I approve, as markdown that fills the repository's issue template, with images attached through `gh --attach`.
 
 ## Git
 
