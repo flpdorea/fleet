@@ -160,10 +160,10 @@ It prints that context's pairing link. On your Mac or phone, with Tailscale conn
 fleet
 ```
 
-The first time, the harness asks you to trust the project directory. Approve it: firstmate's Pi extensions and Claude hooks only load in a trusted project. Then talk to your first mate, for example:
+The first time, the harness may ask you to trust the home directory. Approve it, then talk to the coordinator, for example:
 
 ```
 > look at my github project xyz, then fix the flaky login test
 ```
 
-Detach with `Ctrl-b` then `d`. The first mate and its crew keep running; `fleet` reattaches.
+Detach with `Ctrl-b` then `d`. The coordinator and its workers keep running; `fleet` reattaches.
