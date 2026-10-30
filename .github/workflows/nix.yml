@@ -1,5 +1,6 @@
-# Keeps flake.lock (every pinned version) current and checks that the
-# NixOS configuration evaluates before you run fleet rebuild on the VPS.
+# Keeps flake.lock (every pinned version) current, lints the scripts and
+# workflows, and checks that the NixOS configuration evaluates before you
+# run fleet rebuild on the VPS.
 name: nix
 
 on:
@@ -17,13 +18,13 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked] the last step pushes flake.lock
         with:
           # Deploy key added by scripts/github-settings.sh. The main ruleset
           # lets it push, so the flake.lock commit below lands without a PR.
           ssh-key: ${{ secrets.FLAKE_LOCK_DEPLOY_KEY }}
 
-      - uses: DeterminateSystems/nix-installer-action@v23
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         with:
           extra-conf: |
             extra-substituters = https://cache.numtide.com
@@ -38,6 +39,15 @@ jobs:
 
       - name: Shellcheck
         run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh scripts/tailscale-authkey.sh scripts/tailscale-bootstrap.sh scripts/github-settings.sh
+
+      # zizmor audits the workflows for security problems (template injection,
+      # unpinned actions, leaked credentials); actionlint checks they are valid.
+      - name: Lint workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          nix run nixpkgs#zizmor -- --format=github .
+          nix run nixpkgs#actionlint
 
       - name: Evaluate the whole NixOS configuration
         run: nix eval --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath

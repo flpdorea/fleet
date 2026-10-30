@@ -1,0 +1,20 @@
+# Keeps the actions in .github/workflows current. They are pinned by commit
+# SHA, with the version in a comment; Dependabot updates both. Everything
+# else is pinned by flake.lock, which the nix workflow updates.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # A new release waits a week before it is proposed, so a compromised
+    # one is usually caught and pulled first.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
