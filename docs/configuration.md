@@ -16,7 +16,7 @@ Every change follows the same path: edit, commit, push, wait for CI, then run `f
 
 ```nix
 {
-  personal = { primary = "pi";     orcaPort = 6768; };
+  personal = { primary = "claude"; orcaPort = 6768; };
   work     = { primary = "claude"; orcaPort = 6769; };
 }
 ```

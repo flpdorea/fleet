@@ -11,10 +11,10 @@ Under the hood: [Orca](https://github.com/stablyai/orca) runs headless to host t
 
 | Context | Linux user | Coordinator and workers | Models | Orca port |
 |---|---|---|---|---|
-| `personal` | `personal` | Pi | GPT-5.6 Terra / Sol through the ChatGPT subscription | 6768 |
+| `personal` | `personal` | Claude Code | Claude Opus 5.5 / Fable 5.1 | 6768 |
 | `work` | `work` | Claude Code | Claude Opus 5.5 / Fable 5.1 | 6769 |
 
-The whole machine is declared in this flake: users, firewall, Tailscale, both Orca servers, and every version (pinned in `flake.lock`). Orca, Pi and Claude Code come from numtide's [llm-agents.nix](https://github.com/numtide/llm-agents.nix), prebuilt in their binary cache.
+The whole machine is declared in this flake: users, firewall, Tailscale, both Orca servers, and every version (pinned in `flake.lock`). Orca and Claude Code (and Pi, if a context picks it) come from numtide's [llm-agents.nix](https://github.com/numtide/llm-agents.nix), prebuilt in their binary cache.
 
 ## Quick start
 
@@ -31,7 +31,7 @@ The whole machine is declared in this flake: users, firewall, Tailscale, both Or
 4. For each context:
    ```bash
    ssh fleet-personal
-   fleet login    # git identity, GitHub, and the Pi (or Claude) login
+   fleet login    # git identity, GitHub, and the Claude (or Pi) login
    fleet pair     # link for the Orca app
    fleet          # talk to the coordinator
    ```
@@ -61,7 +61,7 @@ fleet/
 │   ├── fleet.sh              the fleet command (packaged by Nix)
 │   └── setup-user.sh         installs Orca's skills, removes firstmate leftovers
 ├── homes/
-│   └── contexts.nix          personal = pi :6768 · work = claude :6769
+│   └── contexts.nix          personal = claude :6768 · work = claude :6769
 ├── tailscale/policy.hujson   tailnet access policy, applied by CI
 ├── scripts/
 │   ├── tailscale-bootstrap.sh  one-time: policy, OAuth client, secrets

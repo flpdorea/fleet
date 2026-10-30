@@ -141,8 +141,8 @@ fleet login
 |---|---|
 | Git identity | Prompts for the commit author name and email of this context. |
 | GitHub | `gh auth login --web` prints a one-time code and a URL; open it on any device. Then `gh auth setup-git` makes git use it. |
-| Pi (`personal`) | Opens Pi. Run `/login`, choose the ChatGPT subscription (`openai-codex`), open the link in your browser and paste the final redirect URL back. Then `/quit`. |
-| Claude (`work`) | Opens Claude Code. Sign in with the work account, then `/exit`. |
+| Pi (if `primary = "pi"`) | Opens Pi. Run `/login`, choose the ChatGPT subscription (`openai-codex`), open the link in your browser and paste the final redirect URL back. Then `/quit`. |
+| Claude | Opens Claude Code. Sign in with this context's account, then `/exit`. |
 
 Steps that are already done are skipped, so `fleet login` is safe to rerun. Repeat with `ssh fleet-work`.
 
