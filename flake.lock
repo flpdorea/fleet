@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "anthropic-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793215238,
+        "narHash": "sha256-MkCOANBAqCc1WmNf7S8PsyAphGJAIzEXGyCm8RrCR9M=",
+        "owner": "anthropics",
+        "repo": "skills",
+        "rev": "ca45fc496a3436251f191354091d557da31c15b5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "anthropics",
+        "repo": "skills",
+        "type": "github"
+      }
+    },
     "bun2nix": {
       "inputs": {
         "flake-parts": [
@@ -111,6 +127,7 @@
     },
     "root": {
       "inputs": {
+        "anthropic-skills": "anthropic-skills",
         "llm-agents": "llm-agents",
         "nixpkgs": "nixpkgs_2"
       }

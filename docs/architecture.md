@@ -80,6 +80,7 @@ Machine-wide: `sshd`, `tailscaled`, the firewall, `nix-ld`, weekly Nix garbage c
 | Orca, Pi, Claude Code | `llm-agents` in `flake.lock` |
 | nixos-infect | Commit hard-coded in `install.sh` |
 | Orca skills | **Not pinned.** `orca skills install` fetches them from the Orca repo. |
+| Anthropic's `skill-creator` | `anthropic-skills` in `flake.lock` |
 
 The machine's own `/etc/nixos/flake.lock` records which commit of this repo it runs. `fleet-rebuild` moves it to the latest commit.
 

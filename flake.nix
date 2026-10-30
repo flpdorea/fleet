@@ -11,12 +11,17 @@
     # Orca, Pi and Claude Code, packaged and updated daily by numtide.
     # No "follows": that way the binaries come prebuilt from their cache.
     llm-agents.url = "github:numtide/llm-agents.nix";
+    # Anthropic's public skills; fleet installs skill-creator from it.
+    anthropic-skills = {
+      url = "github:anthropics/skills";
+      flake = false;
+    };
   };
 
   outputs =
-    { self, nixpkgs, llm-agents, ... }:
+    { self, nixpkgs, llm-agents, anthropic-skills, ... }:
     {
-      nixosModules.default = import ./nix/module.nix { inherit self llm-agents; };
+      nixosModules.default = import ./nix/module.nix { inherit self llm-agents anthropic-skills; };
 
       # Minimal machine used only by CI to evaluate the module without a real VPS.
       nixosConfigurations.ci = nixpkgs.lib.nixosSystem {
