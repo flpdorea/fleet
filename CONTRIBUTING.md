@@ -8,7 +8,7 @@ Open issues from the **Bug** or **Feature** template; blank issues are disabled 
 
 ## Pull requests
 
-1. Open an issue first and wait for a go-ahead, unless the change is a typo or a small doc fix. A pull request from a fork must close an open issue (`Closes #123` in its body).
+1. Open an issue first and wait for a go-ahead. A pull request from a fork must close an open issue (`Closes #123` in its body), even for a typo.
 2. Target `main`. Keep each pull request to one concern.
 3. Title it as a [Conventional Commit](https://www.conventionalcommits.org): `type(scope): summary`, summary in lowercase, such as `fix(nix): ...` or `docs: ...`. It becomes the squash commit on `main`.
 4. Fill in every section of the pull request template.
