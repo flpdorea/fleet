@@ -3,5 +3,13 @@
   "attribution": false,
   "spinnerTipsEnabled": false,
   "feedbackSurveyRate": 0,
-  "cleanupPeriodDays": 365
+  "cleanupPeriodDays": 365,
+  "extraKnownMarketplaces": {
+    "caveman": {
+      "source": { "source": "github", "repo": "JuliusBrussee/caveman" }
+    }
+  },
+  "enabledPlugins": {
+    "caveman@caveman": true
+  }
 }
