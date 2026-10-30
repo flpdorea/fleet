@@ -71,6 +71,7 @@ The same service also installs these skills in `~/.claude/skills`, replacing eac
 | Skill | Source | What it gives the agent |
 |---|---|---|
 | `self-improve` | `homes/skills/self-improve` | How to change its own setup: a PR to this repo editing `homes/CLAUDE.md`, `homes/claude-settings.json` or `homes/skills/`, never `~/.claude` directly. |
+| `auto-review` | `homes/skills/auto-review` | After a non-trivial implementation, start a second Claude agent through Orca orchestration to review the diff read-only, then verify and fix its findings before reporting. `homes/CLAUDE.md` tells Claude to use it without being asked. |
 | `skill-creator` | [anthropics/skills](https://github.com/anthropics/skills/tree/main/skills/skill-creator), pinned by the `anthropic-skills` input in `flake.lock` | Anthropic's guide and scripts for writing, testing and tuning skills. `self-improve` uses it for new skills. |
 
 `homes/CLAUDE.md` makes this a loop: when you give the same instruction more than twice, across sessions too (Claude keeps count in its memory), Claude suggests turning it into a skill or a rule, and opens the PR only after you approve. The change takes effect once you merge it and run `fleet-rebuild`.

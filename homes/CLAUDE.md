@@ -18,6 +18,10 @@
 - PR bodies: when the repository has a pull request template (such as `.github/pull_request_template.md`), fill it in. Otherwise keep the body short: what changed and why.
 - No AI attribution in commits or PRs: no `Co-Authored-By` trailer and no "Generated with" line.
 
+## Review
+
+- After a worthwhile implementation, before calling it done, use the `auto-review` skill: a second Claude agent, started through Orca orchestration, reviews the diff and you fix what it finds.
+
 ## Self-improvement
 
 - Your global setup (this file, settings, skills) lives in the fleet repo (`flpdorea/fleet`). To change it, use the `self-improve` skill: it opens a PR there. Never edit `~/.claude` directly for that; the next rebuild reverts it.
