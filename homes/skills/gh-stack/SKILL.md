@@ -48,12 +48,23 @@ gh stack submit --auto                        # push all branches, open draft PR
 - `gh stack init a b c` creates (or adopts) several branches at once, bottom to top. `--base develop` for a trunk other than the default branch.
 - `gh stack submit --auto` creates new PRs as drafts with generated titles. Then set each PR's title and body with `gh pr edit <branch> --title ... --body ...` (Conventional Commit titles, the repo's PR template filled in, one PR per layer describing only that layer and naming its place in the stack).
 - `gh stack submit --open` marks the PRs ready for review, when the work is done.
+- In an Orca worktree, link every PR in the stack to it (see below).
+
+## Linking the stack in Orca
+
+Orca links a worktree only to the PR of the branch checked out in it, so a stack kept in one worktree shows just the top PR. After every `gh stack submit` that creates PRs, attach all of them explicitly:
+
+```sh
+orca reference add $(for b in feat/auth-model feat/auth-api feat/auth-ui; do gh pr view "$b" --json url -q .url; done) --worktree current
+```
+
+List the stack's branches bottom to top (`gh stack view --short`). Existing links stay unchanged, so rerunning it after adding a layer is safe. Check with `orca reference list --worktree current`. If a layer lives in another worktree (`--print-path`), link its PR there too. If Orca answers that the host doesn't support reference commands, say so to the user, who needs to update Orca, and go on.
 
 ## Changing a stack
 
 - **Fix something in a lower layer**: `gh stack checkout <branch>` (or `gh stack down`/`up`/`bottom`/`top`), commit the fix there, then `gh stack rebase --upstack` to carry it into the branches above, then `gh stack push`. Don't fix it in the top branch.
 - **Trunk moved**: `gh stack sync` fetches, rebases the whole stack onto the trunk, pushes and syncs PR state. On conflict it restores everything; run `gh stack rebase`, resolve, `git add`, `gh stack rebase --continue` (or `--abort`).
-- **Add a layer on top**: `gh stack top`, then `gh stack add <branch>`, commit, `gh stack submit --auto`.
+- **Add a layer on top**: `gh stack top`, then `gh stack add <branch>`, commit, `gh stack submit --auto`, and link the new PR in Orca.
 - **Reorder, fold, drop or insert layers**: `gh stack modify` is an interactive TUI; ask the user to run it, then `gh stack submit`.
 - **Inspect**: `gh stack view --json` for machine-readable state (branches, PRs, which need a rebase).
 
