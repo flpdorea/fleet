@@ -80,12 +80,59 @@ gh api -X PATCH "repos/$repo" --silent \
   -F delete_branch_on_merge=true \
   -F allow_update_branch=true \
   -f squash_merge_commit_title=PR_TITLE \
-  -f squash_merge_commit_message=PR_BODY
+  -f squash_merge_commit_message=PR_BODY \
+  -F has_wiki=false \
+  -F has_projects=false
+
+# Security reports arrive privately (SECURITY.md), and Dependabot raises
+# alerts and opens fixes for vulnerable actions.
+gh api -X PUT "repos/$repo/private-vulnerability-reporting" --silent
+gh api -X PUT "repos/$repo/vulnerability-alerts" --silent
+gh api -X PUT "repos/$repo/automated-security-fixes" --silent
+
+# Secret scanning and push protection are on for every public repo; these
+# also catch generic secrets (passwords, private keys) and check whether a
+# leaked token still works. They may need a paid plan, so a refusal only warns.
+gh api -X PATCH "repos/$repo" --input - --silent <<<'{"security_and_analysis": {
+  "secret_scanning_non_provider_patterns": {"status": "enabled"},
+  "secret_scanning_validity_checks": {"status": "enabled"}
+}}' || echo "warning: could not enable generic secret patterns and validity checks" >&2
+
+# Workflows from anyone without write access wait for a maintainer's
+# approval, not only those from first-time contributors.
+gh api -X PUT "repos/$repo/actions/permissions/fork-pr-contributor-approval" \
+  -f approval_policy=all_external_contributors --silent
+
+# Workflows may only use actions pinned to a full commit SHA, from GitHub or
+# from this list. Adding an action to a workflow means adding it here.
+gh api -X PUT "repos/$repo/actions/permissions" --silent \
+  -F enabled=true -f allowed_actions=selected -F sha_pinning_required=true
+gh api -X PUT "repos/$repo/actions/permissions/selected-actions" --input - --silent <<<'{
+  "github_owned_allowed": true,
+  "verified_allowed": false,
+  "patterns_allowed": [
+    "amannn/action-semantic-pull-request@*",
+    "DeterminateSystems/nix-installer-action@*",
+    "tailscale/gitops-acl-action@*"
+  ]
+}'
+
+# Creates the ruleset named $1, or replaces it, with the JSON on stdin.
+apply_ruleset() {
+  local id
+  id=$(gh api "repos/$repo/rulesets" --jq ".[] | select(.name == \"$1\") | .id")
+  if [ -n "$id" ]; then
+    gh api -X PUT "repos/$repo/rulesets/$id" --input - --silent
+  else
+    gh api -X POST "repos/$repo/rulesets" --input - --silent
+  fi
+}
 
 # main only changes through a squash-merged pull request whose required
 # checks pass on a branch up to date with main (so the merge cannot
-# conflict), or through a deploy key.
-ruleset=$(cat <<JSON
+# conflict), with every review thread resolved, or through a deploy key.
+# Its history stays linear and signed: GitHub signs the squash commits.
+apply_ruleset main <<JSON
 {
   "name": "main",
   "target": "branch",
@@ -97,12 +144,14 @@ ruleset=$(cat <<JSON
   "rules": [
     {"type": "deletion"},
     {"type": "non_fast_forward"},
+    {"type": "required_linear_history"},
+    {"type": "required_signatures"},
     {"type": "pull_request", "parameters": {
       "required_approving_review_count": 0,
       "dismiss_stale_reviews_on_push": false,
       "require_code_owner_review": false,
       "require_last_push_approval": false,
-      "required_review_thread_resolution": false,
+      "required_review_thread_resolution": true,
       "allowed_merge_methods": ["squash"]
     }},
     {"type": "required_status_checks", "parameters": {
@@ -111,18 +160,35 @@ ruleset=$(cat <<JSON
         {"context": "check", "integration_id": $actions_app},
         {"context": "policy", "integration_id": $actions_app},
         {"context": "pr-title", "integration_id": $actions_app},
-        {"context": "pr-template", "integration_id": $actions_app}
+        {"context": "pr-template", "integration_id": $actions_app},
+        {"context": "pr-base", "integration_id": $actions_app},
+        {"context": "pr-issue", "integration_id": $actions_app}
       ]
     }}
   ]
 }
 JSON
-)
 
-id=$(gh api "repos/$repo/rulesets" --jq '.[] | select(.name == "main") | .id')
-if [ -n "$id" ]; then
-  gh api -X PUT "repos/$repo/rulesets/$id" --input - --silent <<<"$ruleset"
-else
-  gh api -X POST "repos/$repo/rulesets" --input - --silent <<<"$ruleset"
-fi
-echo "Applied merge settings and the main ruleset to $repo."
+# Branches follow a few name patterns: the Orca worktree prefix (the owner's
+# login), a Conventional Commit type, or Dependabot's. A branch named like a
+# release tag (v1.2.3) cannot exist. People outside the repo push to their
+# forks, so this only binds the maintainer, the agents and the bots.
+apply_ruleset branch-names <<JSON
+{
+  "name": "branch-names",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {"ref_name": {
+    "include": ["~ALL"],
+    "exclude": [
+      "~DEFAULT_BRANCH",
+      "refs/heads/${repo%%/*}/**",
+      "refs/heads/feat/**", "refs/heads/fix/**", "refs/heads/docs/**", "refs/heads/chore/**",
+      "refs/heads/ci/**", "refs/heads/refactor/**", "refs/heads/test/**",
+      "refs/heads/dependabot/**"
+    ]
+  }},
+  "rules": [{"type": "creation"}]
+}
+JSON
+echo "Applied the repository settings and rulesets to $repo."
