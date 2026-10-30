@@ -25,22 +25,22 @@ jobs:
       id-token: write # sign the attestation
       attestations: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked] a later step pushes the tag
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          persist-credentials: false
 
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
 
       - name: Next version and notes
         id: version
         run: |
-          version=$(nix run nixpkgs#git-cliff -- --bumped-version)
+          version=$(nix run --inputs-from . nixpkgs#git-cliff -- --bumped-version)
           if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
             echo "::error::Nothing to release: no Conventional Commit since $version."
             exit 1
           fi
-          nix run nixpkgs#git-cliff -- --unreleased --tag "$version" --strip all -o notes.md
+          nix run --inputs-from . nixpkgs#git-cliff -- --unreleased --tag "$version" --strip all -o notes.md
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
       - name: install.sh for this release
@@ -55,14 +55,16 @@ jobs:
         with:
           subject-path: dist/install.sh
 
+      # The deploy key exists only in this step, after every tool above ran.
       - name: Tag
         env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$VERSION" -m "$VERSION"
-          git push origin "refs/tags/$VERSION"
+          .github/scripts/deploy-push.sh "refs/tags/$VERSION"
 
       - name: Publish
         env:
