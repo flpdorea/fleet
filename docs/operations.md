@@ -35,7 +35,7 @@ nix flake update             # everything
 nix flake update llm-agents  # just one input
 ```
 
-Then push and run `fleet rebuild`.
+Then open a pull request, merge it and run `fleet rebuild`.
 
 ### Restarting Orca after an update
 

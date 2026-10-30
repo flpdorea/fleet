@@ -11,13 +11,17 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Deploy key added by scripts/github-settings.sh. The main ruleset
+          # lets it push, so the flake.lock commit below lands without a PR.
+          ssh-key: ${{ secrets.FLAKE_LOCK_DEPLOY_KEY }}
 
       - uses: DeterminateSystems/nix-installer-action@v23
         with:
@@ -38,7 +42,7 @@ jobs:
       - name: Evaluate the whole NixOS configuration
         run: nix eval --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath
 
-      # Pushes straight to main: the ruleset lets GitHub Actions bypass it.
+      # Pushes straight to main over the deploy key, which bypasses the ruleset.
       - name: Publish flake.lock
         if: github.event_name != 'pull_request'
         run: |

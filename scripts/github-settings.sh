@@ -21,8 +21,21 @@ gh api -X PATCH "repos/$repo" --silent \
   -f squash_merge_commit_title=PR_TITLE \
   -f squash_merge_commit_message=BLANK
 
+# The nix workflow pushes flake.lock updates to main with this deploy key.
+# A ruleset on a personal repo cannot let GitHub Actions bypass it, but it
+# can let deploy keys bypass it, so this key is the only way around the PR
+# requirement. The private half lives only in the FLAKE_LOCK_DEPLOY_KEY secret.
+key_title="flake.lock (nix workflow)"
+if ! gh api "repos/$repo/keys" --jq '.[].title' | grep -qxF "$key_title"; then
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  ssh-keygen -q -t ed25519 -N '' -C "$key_title" -f "$tmp/key"
+  gh secret set FLAKE_LOCK_DEPLOY_KEY --repo "$repo" <"$tmp/key"
+  gh repo deploy-key add "$tmp/key.pub" --repo "$repo" --allow-write --title "$key_title" >/dev/null
+fi
+
 # main only changes through a squash-merged pull request whose required
-# checks pass. GitHub Actions bypasses it to push flake.lock updates.
+# checks pass, or through a deploy key.
 ruleset=$(cat <<JSON
 {
   "name": "main",
@@ -30,7 +43,7 @@ ruleset=$(cat <<JSON
   "enforcement": "active",
   "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
   "bypass_actors": [
-    {"actor_id": $actions_app, "actor_type": "Integration", "bypass_mode": "always"}
+    {"actor_type": "DeployKey", "bypass_mode": "always"}
   ],
   "rules": [
     {"type": "deletion"},
