@@ -11,7 +11,7 @@ repo="${1:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
 actions_app=15368 # GitHub Actions
 
 # Squash only; the squash commit is the pull request title (checked to be a
-# Conventional Commit by the pr workflow) with the commit messages as the body.
+# Conventional Commit by the pr workflow) with the pull request body as its body.
 # Merged branches are deleted, and the "Update branch" button is shown (it can rebase).
 gh api -X PATCH "repos/$repo" --silent \
   -F allow_squash_merge=true \
@@ -20,7 +20,7 @@ gh api -X PATCH "repos/$repo" --silent \
   -F delete_branch_on_merge=true \
   -F allow_update_branch=true \
   -f squash_merge_commit_title=PR_TITLE \
-  -f squash_merge_commit_message=COMMIT_MESSAGES
+  -f squash_merge_commit_message=PR_BODY
 
 # The nix workflow pushes flake.lock updates to main with this deploy key.
 # A ruleset on a personal repo cannot let GitHub Actions bypass it, but it
