@@ -83,6 +83,17 @@ if [ "$FLEET_PRIMARY" = claude ]; then
     cp -r "${skill%/}" "$dest"
     chmod -R u+w "$dest"
   done
+
+  # The caveman plugin (terse replies, on by default), from the marketplace
+  # declared in homes/claude-settings.json. Not pinned: every run refreshes
+  # the marketplace and updates the plugin. A network failure must not
+  # block the rest of the setup; the next rebuild retries.
+  echo "installing the caveman plugin"
+  { claude plugin marketplace add JuliusBrussee/caveman \
+      && claude plugin marketplace update caveman \
+      && claude plugin install caveman@caveman \
+      && claude plugin update caveman@caveman; } >/dev/null \
+    || echo "caveman install failed; run 'claude plugin install caveman@caveman' as $FLEET_CONTEXT" >&2
 fi
 
 # The gh-stack extension for stacked PRs (homes/skills/gh-stack). Needs the

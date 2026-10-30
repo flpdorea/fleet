@@ -58,7 +58,7 @@ fleet/
 ├── nix/
 │   ├── module.nix            the machine: users, Orca, Tailscale, firewall, services
 │   ├── fleet.sh              the fleet command (packaged by Nix)
-│   └── setup-user.sh         installs Orca's skills, Claude settings and mise runtimes, removes firstmate leftovers
+│   └── setup-user.sh         installs Orca's skills, Claude settings, the caveman plugin and mise runtimes, removes firstmate leftovers
 ├── homes/
 │   ├── contexts.nix          personal = claude :6768 · work = claude :6769
 │   ├── claude-settings.json  merged into each user's ~/.claude/settings.json
@@ -87,5 +87,5 @@ fleet/
 
 ## Known limits
 
-- Orca's skills come from the Orca repo through `npx skills`, and the `lavish` skill runs the latest `lavish-axi` CLI through `npx`; those are the only parts not pinned by `flake.lock`.
+- Orca's skills come from the Orca repo through `npx skills`, and the `lavish` skill runs the latest `lavish-axi` CLI through `npx`, and the caveman Claude Code plugin is updated from its GitHub repo on every rebuild; those are the only parts not pinned by `flake.lock`.
 - Each Orca server uses a fair amount of memory. Contabo's guide recommends 12 GB for one; with two servers and several workers, size up.

@@ -9,6 +9,7 @@
 
 - Be concise: get to the point, and skip long recaps at the end of a reply.
 - No emojis anywhere: replies, code, commits, PRs.
+- Caveman style is only for replies to me. Anything other people read is written in normal prose: PR and issue titles, bodies and comments, review replies, commit messages, docs and messages to anyone else.
 
 ## HTML artifacts
 
