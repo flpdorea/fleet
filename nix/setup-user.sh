@@ -1,6 +1,6 @@
 # Prepares one context user. Runs as that user, from the
 # fleet-setup-<context> service. Variables set by the Nix module:
-#   FLEET_CONTEXT, FLEET_PRIMARY
+#   FLEET_CONTEXT, FLEET_PRIMARY, FLEET_CLAUDE_SETTINGS, FLEET_CLAUDE_MD
 set -euo pipefail
 
 FLEET="$HOME/fleet"
@@ -56,6 +56,22 @@ case "$FLEET_PRIMARY" in
 esac
 echo "installing Orca skills for $agent"
 orca skills install --skill orca-cli --skill orchestration --agent "$agent"
+
+# Our Claude Code settings (homes/claude-settings.json), merged over the
+# user's: Orca writes its hooks and status line to the same file, so it
+# is never replaced. Keys set here win on every run, even over /config.
+# The global instructions (homes/CLAUDE.md) belong to the repo and are
+# replaced on every run.
+if [ "$FLEET_PRIMARY" = claude ]; then
+  echo "applying Claude Code settings and instructions"
+  mkdir -p "$HOME/.claude"
+  install -m 644 "$FLEET_CLAUDE_MD" "$HOME/.claude/CLAUDE.md"
+  settings="$HOME/.claude/settings.json"
+  [ -s "$settings" ] || echo '{}' >"$settings"
+  tmp=$(mktemp)
+  jq -s '.[0] * .[1]' "$settings" "$FLEET_CLAUDE_SETTINGS" >"$tmp" && cat "$tmp" >"$settings"
+  rm -f "$tmp"
+fi
 
 touch "$FLEET/.ready"
 echo "fleet ready"
