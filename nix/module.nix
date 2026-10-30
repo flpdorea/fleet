@@ -148,6 +148,8 @@ in
           environment = {
             FLEET_CONTEXT = ctx;
             FLEET_PRIMARY = c.primary;
+            FLEET_CLAUDE_SETTINGS = "${../homes/claude-settings.json}";
+            FLEET_CLAUDE_MD = "${../homes/CLAUDE.md}";
             NPM_CONFIG_PREFIX = "/home/${ctx}/.npm-global";
           };
           path = [ setupScript ];
