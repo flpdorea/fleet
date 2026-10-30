@@ -1,6 +1,6 @@
 # Configuration
 
-Every change follows the same path: edit, commit, push, wait for CI, then run `fleet-rebuild` as root on the VPS.
+Every change follows the same path: edit, commit, push, wait for CI, then run `fleet rebuild` as root on the VPS.
 
 | I want to change | File |
 |---|---|
@@ -26,7 +26,7 @@ Every change follows the same path: edit, commit, push, wait for CI, then run `f
 | Field | Meaning |
 |---|---|
 | attribute name | The context name. Also the Linux user name. |
-| `primary` | The harness `fleet` opens as the coordinator, and the one that gets the Orca skills: `pi` or `claude`. |
+| `primary` | The harness installed for the context, logged in by `fleet login`, and the one that gets the Orca skills: `pi` or `claude`. |
 | `orcaPort` | The port that context's Orca server listens on. Must be unique. |
 
 ## Orca skills
@@ -46,7 +46,7 @@ That installs Orca's own skills globally for the harness (`~/.claude/skills` for
 
 `orca skills list` shows the other bundled skills (Linear, emulators, per-workspace environments). To add one, add another `--skill` to `nix/setup-user.sh`.
 
-Which model and effort a worker gets is the coordinator's call when it spawns it through the `orca` CLI. To steer it, say so in your request or in the harness's global instructions (`homes/CLAUDE.md`, installed as `~/.claude/CLAUDE.md`, for Claude Code).
+Which model and effort an agent gets is chosen when you start it in the Orca app (or by the agent that spawns it through the `orca` CLI). To steer it, say so in your prompt or in the harness's global instructions (`homes/CLAUDE.md`, installed as `~/.claude/CLAUDE.md`, for Claude Code).
 
 ## Claude Code settings
 
@@ -69,5 +69,5 @@ Every key is documented in the [settings reference](https://code.claude.com/docs
 
 1. Add an entry to `homes/contexts.nix` with a new name and a unique port.
 2. Add the name to the `case` in `install.sh`, which validates context names.
-3. On an existing VPS, add it to `fleet.contexts` in `/etc/nixos/fleet.nix`, then run `fleet-rebuild`.
+3. On an existing VPS, add it to `fleet.contexts` in `/etc/nixos/fleet.nix`, then run `fleet rebuild`.
 4. As the new user: `fleet login`, `fleet pair`.

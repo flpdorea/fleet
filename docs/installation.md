@@ -156,14 +156,10 @@ It prints that context's pairing link. On your Mac or phone, with Tailscale conn
 
 ## First run
 
-```bash
-fleet
-```
-
-The first time, the harness may ask you to trust the home directory. Approve it, then talk to the coordinator, for example:
+In the Orca app, open the paired server, add a repo and start an agent in one of its worktrees, for example:
 
 ```
-> look at my github project xyz, then fix the flaky login test
+> fix the flaky login test and open a pull request
 ```
 
-Detach with `Ctrl-b` then `d`. The coordinator and its workers keep running; `fleet` reattaches.
+The agent keeps running on the VPS when you close the app. Run `fleet` on the VPS to list the other commands.

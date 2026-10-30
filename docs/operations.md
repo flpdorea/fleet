@@ -2,16 +2,16 @@
 
 ## Daily use
 
+Day to day, you work from the Orca app: start agents in a repo's worktrees, watch and type into their terminals, and follow their GitHub pull requests. Agents keep running on the VPS when the app is closed.
+
+On the VPS, `fleet` lists the commands:
+
 ```bash
 ssh fleet-personal      # or fleet-work (see installation: SSH key and config)
-fleet                   # attach to the coordinator
+fleet status            # whether setup ran and whether Orca is ready
 ```
 
-- Detach with `Ctrl-b` then `d`. Nothing stops.
-- Watch and type into any worker's terminal from the Orca app.
-- `fleet status` shows whether setup ran, whether Orca is ready, and whether the coordinator is running.
-
-Ask the coordinator to split work across workers; its `orchestration` skill handles dispatch, messages and waits. `orca skills list` shows the Orca skills available.
+The `orca-cli` and `orchestration` skills are installed for each harness, so an agent can still drive Orca or other agents when you ask it to. `orca skills list` shows the Orca skills available.
 
 ## Updating
 
@@ -21,10 +21,10 @@ Ask the coordinator to split work across workers; its `orchestration` skill hand
 2. Wait for the `nix` workflow to pass.
 3. On the VPS, as root:
    ```bash
-   fleet-rebuild
+   fleet rebuild
    ```
 
-`fleet-rebuild` updates the machine's `fleet` input to the latest commit and switches to it. `fleet-setup-<ctx>` reruns when the repo or Orca changed, so each harness gets fresh Orca skills.
+`fleet rebuild` updates the machine's `fleet` input to the latest commit and switches to it. `fleet-setup-<ctx>` reruns when the repo or Orca changed, so each harness gets fresh Orca skills.
 
 ### Versions (NixOS, Orca, Pi, Claude Code)
 
@@ -35,7 +35,7 @@ nix flake update             # everything
 nix flake update llm-agents  # just one input
 ```
 
-Then push and run `fleet-rebuild`.
+Then push and run `fleet rebuild`.
 
 ### Restarting Orca after an update
 
@@ -88,5 +88,5 @@ journalctl -u fleet-bootstrap
 
 ## Removing a context
 
-1. Remove it from `fleet.contexts` in `/etc/nixos/fleet.nix` and run `fleet-rebuild`. Its services stop.
+1. Remove it from `fleet.contexts` in `/etc/nixos/fleet.nix` and run `fleet rebuild`. Its services stop.
 2. `/home/<ctx>` is not deleted, so its logins, harness config and Orca worktrees stay. Remove the directory by hand when you are sure you no longer need it.

@@ -1,31 +1,40 @@
-# fleet - this user's coordinator session (one Linux user per context).
+# fleet - day-to-day command on the VPS (one Linux user per context, plus root).
 # Packaged by the Nix module with writeShellApplication.
 
-FLEET="$HOME/fleet"
-CTX=$(cat "$FLEET/.context" 2>/dev/null) || {
-  echo "fleet: this user is not a fleet context (or its setup has not run yet)" >&2
-  exit 1
-}
-PRIMARY=$(jq -r --arg c "$CTX" '.[$c].primary' /etc/fleet/contexts.json)
-PORT=$(jq -r --arg c "$CTX" '.[$c].orcaPort' /etc/fleet/contexts.json)
-LOG="/var/log/fleet/orca-$CTX.log"
-
 usage() {
-  cat >&2 <<'EOF'
-usage: fleet [command]
-  (none)   open (or reattach to) the coordinator in a tmux session
-  login    git identity, GitHub and the agent's login
-  pair     link that connects the Orca app to this server
-  status   setup, Orca server and coordinator session
+  cat <<'EOF'
+fleet - coding agents on this server, run by Orca and followed from the Orca app.
+
+Usage: fleet <command>
+
+As a context user (personal, work):
+  login     set up the git identity, GitHub and the agent's login
+  pair      print the link that connects the Orca app to this server
+  status    show whether setup ran and whether the Orca server is ready
+
+As root:
+  rebuild   pull the latest version of the fleet repo and apply it
+
+  help      show this message
 EOF
 }
 
-open() {
-  if ! tmux has-session -t =fleet 2>/dev/null; then
-    tmux new-session -d -s fleet -c "$HOME" "$PRIMARY"
-  fi
-  if [ -n "${TMUX:-}" ]; then exec tmux switch-client -t =fleet; fi
-  exec tmux attach -t =fleet
+# Loads this user's context. Every command but help and rebuild needs it.
+context() {
+  FLEET="$HOME/fleet"
+  CTX=$(cat "$FLEET/.context" 2>/dev/null) || {
+    echo "fleet: this user is not a fleet context (or its setup has not run yet)" >&2
+    exit 1
+  }
+  PRIMARY=$(jq -r --arg c "$CTX" '.[$c].primary' /etc/fleet/contexts.json)
+  PORT=$(jq -r --arg c "$CTX" '.[$c].orcaPort' /etc/fleet/contexts.json)
+  LOG="/var/log/fleet/orca-$CTX.log"
+}
+
+rebuild() {
+  [ "$(id -u)" -eq 0 ] || { echo "fleet rebuild: run as root" >&2; exit 1; }
+  nix flake update fleet --flake /etc/nixos
+  exec nixos-rebuild switch --flake /etc/nixos#fleet "$@"
 }
 
 login() {
@@ -77,24 +86,22 @@ pair() {
 }
 
 status() {
-  printf 'setup:       '
+  printf 'setup: '
   if [ -f "$FLEET/.ready" ]; then echo "ok"; else echo "pending (systemctl status fleet-setup-$CTX)"; fi
-  printf 'orca:        '
+  printf 'orca:  '
   orca status --json 2>/dev/null | jq -r '
       (.result.runtime // {}) as $r
       | if .ok == false then "error: \(.error.message // .error.code // "?")"
         elif ($r.reachable // .result.runtimeReachable) == true and ($r.state // .result.runtimeState) == "ready" then "ready"
         else "not ready (\($r.state // .result.runtimeState // "?"))" end' 2>/dev/null \
     || echo "no response (systemctl status orca-serve-$CTX)"
-  printf 'coordinator: '
-  if tmux has-session -t =fleet 2>/dev/null; then echo "running (fleet)"; else echo "not running"; fi
 }
 
 case "${1:-}" in
-  "")     open ;;
-  login)  login ;;
-  pair)   pair ;;
-  status) status ;;
-  help|-h|--help) usage ;;
-  *)      usage; exit 1 ;;
+  ""|help|-h|--help) usage ;;
+  login)   context; login ;;
+  pair)    context; pair ;;
+  status)  context; status ;;
+  rebuild) shift; rebuild "$@" ;;
+  *)       echo "fleet: unknown command: $1" >&2; usage >&2; exit 1 ;;
 esac

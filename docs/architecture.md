@@ -4,8 +4,8 @@
 
 | Piece | Role |
 |---|---|
-| Orca's `orchestration` and `orca-cli` skills | Installed globally for each context's harness. They turn the agent you talk to (the coordinator) into a supervisor that dispatches tasks to worker agents in Orca, messages them and waits on their results. |
-| [Orca](https://github.com/stablyai/orca) | Owns each worker's git worktree and terminal. Runs headless on the VPS (`orca-ide serve`); the Orca app on your Mac or phone is just a client. |
+| Orca's `orchestration` and `orca-cli` skills | Installed globally for each context's harness, so an agent can drive Orca or dispatch work to other agents when asked. |
+| [Orca](https://github.com/stablyai/orca) | Owns each agent's git worktree and terminal, and its GitHub integration. Runs headless on the VPS (`orca-ide serve`); the Orca app on your Mac or phone is just a client. |
 | Pi | Optional alternative harness (`primary = "pi"`). Uses GPT-5.6 models through the ChatGPT subscription (`openai-codex` provider). |
 | Claude Code | The harness of both contexts, each with its own account. Uses Claude Opus 5.5 and Fable 5.1. |
 | NixOS + this flake | Declares the whole machine and pins every version. |
@@ -14,30 +14,26 @@
 ## How a request flows
 
 ```
- you ──ssh──▶ personal@vps ──▶ tmux "fleet" ──────▶ claude (coordinator)
-                                                       │ orca CLI (orchestration skill)
-                                                       ▼
-                                   orca-serve-personal (port 6768)
-                                     ├─ worktree + terminal ─▶ claude worker  (Opus/Fable)
-                                     ├─ worktree + terminal ─▶ claude worker
-                                     └─ ...
-                                                       ▲
- Orca app on Mac/phone ──tailnet──────────────────────┘  (watch, type into terminals)
+ Orca app on Mac/phone ──tailnet──▶ orca-serve-personal (port 6768, user personal)
+                                      ├─ worktree + terminal ─▶ claude agent  (Opus/Fable)
+                                      ├─ worktree + terminal ─▶ claude agent
+                                      └─ ...
 ```
 
 The `work` context is the same picture with the `work` user, its own Claude account and port 6769.
 
-1. You SSH in as a context user and run `fleet`, which attaches to a tmux session running that context's harness in the home directory.
-2. You ask the coordinator for something. Its `orchestration` skill has it break the work into tasks and dispatch them through the `orca` CLI.
-3. The local Orca server creates a worktree and a terminal for each task and launches a worker harness in it. The coordinator picks the worker's agent, model and effort.
-4. The coordinator waits on `worker_done` and escalations, answers workers' questions, and reports back with PRs, merges or investigation reports.
-5. Meanwhile, the Orca app on your devices shows every worker's terminal live.
+1. In the Orca app, you open a context's server, pick a repo and start an agent, choosing its harness, model and effort.
+2. The Orca server on the VPS creates a worktree and a terminal and launches the harness in it, as that context's user.
+3. The agent works, pushes and opens pull requests with that context's GitHub login; Orca shows their status.
+4. The app shows every agent's terminal live, and the agents keep running when it is closed.
+
+SSH is only for setup and maintenance: `fleet login`, `fleet pair`, `fleet status` and, as root, `fleet rebuild`.
 
 ## Why one Linux user per context
 
 Orca's documentation is explicit: remote sessions use the **server's** `PATH`, home directory and credentials. Workers inherit the Orca server's environment, not the environment of the shell that asked for them.
 
-So per-context separation through environment variables (a different `GH_CONFIG_DIR`, `CLAUDE_CONFIG_DIR` or git identity per tmux session) would never reach the workers. Instead, each context is a separate Linux user running its own Orca server:
+So per-context separation through environment variables (a different `GH_CONFIG_DIR`, `CLAUDE_CONFIG_DIR` or git identity per shell) would never reach the agents. Instead, each context is a separate Linux user running its own Orca server:
 
 | Isolated per user | Where |
 |---|---|
@@ -81,7 +77,7 @@ Machine-wide: `sshd`, `tailscaled`, the firewall, `nix-ld`, weekly Nix garbage c
 | nixos-infect | Commit hard-coded in `install.sh` |
 | Orca skills | **Not pinned.** `orca skills install` fetches them from the Orca repo. |
 
-The machine's own `/etc/nixos/flake.lock` records which commit of this repo it runs. `fleet-rebuild` moves it to the latest commit.
+The machine's own `/etc/nixos/flake.lock` records which commit of this repo it runs. `fleet rebuild` moves it to the latest commit.
 
 ## Security model
 
