@@ -31,7 +31,7 @@ has_tty() { (: </dev/tty) 2>/dev/null; }
 
 # ---------------------------------------------------------------- checks
 [ "$(id -u)" -eq 0 ] || die "run as root"
-[ -e /etc/NIXOS ] && die "this machine already runs NixOS; to update it, run: fleet-rebuild"
+[ -e /etc/NIXOS ] && die "this machine already runs NixOS; to update it, run: fleet rebuild"
 # shellcheck disable=SC1091
 . /etc/os-release
 case "${ID:-}" in ubuntu|debian) ;; *) die "only Ubuntu/Debian are supported (found: ${ID:-?})" ;; esac

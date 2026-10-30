@@ -1,5 +1,5 @@
 # Keeps flake.lock (every pinned version) current and checks that the
-# NixOS configuration evaluates before you run fleet-rebuild on the VPS.
+# NixOS configuration evaluates before you run fleet rebuild on the VPS.
 name: nix
 
 on:

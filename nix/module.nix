@@ -10,22 +10,13 @@ let
 
   primaryPkg = { pi = agents.pi; claude = agents.claude-code; };
 
-  # Day-to-day command for each context user: fleet | login | pair | status
+  # Day-to-day command: login | pair | status for context users, rebuild for
+  # root, and a help message when run without arguments.
   fleetCli = pkgs.writeShellApplication {
     name = "fleet";
-    runtimeInputs = with pkgs; [ coreutils gnugrep gnused jq tmux git gh ];
+    runtimeInputs = (with pkgs; [ coreutils gnugrep gnused jq git gh nix ])
+      ++ [ config.system.build.nixos-rebuild ];
     text = builtins.readFile ./fleet.sh;
-  };
-
-  # For root: pull the latest version of this repo and apply it.
-  fleetRebuild = pkgs.writeShellApplication {
-    name = "fleet-rebuild";
-    runtimeInputs = [ config.system.build.nixos-rebuild pkgs.nix pkgs.git ];
-    text = ''
-      [ "$(id -u)" -eq 0 ] || { echo "fleet-rebuild: run as root" >&2; exit 1; }
-      nix flake update fleet --flake /etc/nixos
-      exec nixos-rebuild switch --flake /etc/nixos#fleet "$@"
-    '';
   };
 
   setupScript = pkgs.writeShellApplication {
@@ -103,7 +94,7 @@ in
 
       environment.systemPackages =
         (with pkgs; [ git gh tmux jq curl nodejs_22 ])
-        ++ [ agents.orca fleetCli fleetRebuild ]
+        ++ [ agents.orca fleetCli ]
         ++ lib.unique (lib.mapAttrsToList (_: c: primaryPkg.${c.primary}) contexts);
 
       # Per-user PATH and global npm prefix, no sudo needed.

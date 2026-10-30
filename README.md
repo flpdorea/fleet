@@ -2,14 +2,14 @@
 
 Hand off coding tasks to agents on your own server. Check in from your phone while they work around the clock.
 
-You talk to one coordinator agent per account, and it splits the work across worker agents. Personal and work run as separate Linux users, so their logins and repos never mix. You follow every worker's terminal live from the Orca app on your Mac or phone.
+You start agents per account from the Orca app on your Mac or phone, and Orca runs each one in its own worktree and terminal on the VPS. Personal and work run as separate Linux users, so their logins and repos never mix. You follow every agent's terminal live and pick up its GitHub work from the app.
 
-Under the hood: [Orca](https://github.com/stablyai/orca) runs headless to host the workers, its own `orchestration` skill (installed globally for each harness) turns the agent you talk to into their supervisor, and a **NixOS** VPS declared in this flake ties it together.
+Under the hood: [Orca](https://github.com/stablyai/orca) runs headless to host the agents, its own `orca-cli` and `orchestration` skills are installed globally for each harness, and a **NixOS** VPS declared in this flake ties it together.
 
 > [!NOTE]
 > This is my personal setup, tuned to how I work: my accounts, my models, my VPS. Use it and try it out, I recommend it. But I encourage you even more to build your own, and to treat this repo as inspiration rather than a product. If you fork it, point `FLEET_REPO` in `install.sh` at your fork.
 
-| Context | Linux user | Coordinator and workers | Models | Orca port |
+| Context | Linux user | Agents | Models | Orca port |
 |---|---|---|---|---|
 | `personal` | `personal` | Claude Code | Claude Opus 5.5 / Fable 5.1 | 6768 |
 | `work` | `work` | Claude Code | Claude Opus 5.5 / Fable 5.1 | 6769 |
@@ -33,8 +33,8 @@ The whole machine is declared in this flake: users, firewall, Tailscale, both Or
    ssh fleet-personal
    fleet login    # git identity, GitHub, and the Claude (or Pi) login
    fleet pair     # link for the Orca app
-   fleet          # talk to the coordinator
    ```
+   Add the server in the Orca app with that link and start agents from there. `fleet` alone lists the commands.
 
 The full walkthrough, including what to watch during the first boot, is in [docs/installation.md](docs/installation.md).
 
@@ -42,12 +42,11 @@ The full walkthrough, including what to watch during the first boot, is in [docs
 
 | Command | Run as | What it does |
 |---|---|---|
-| `fleet` | context user | open (or reattach to) the coordinator in tmux |
-| `Ctrl-b` then `d` | | detach, leaving everything running |
-| `fleet status` | context user | setup, Orca server and coordinator state |
+| `fleet` | anyone | list the commands |
+| `fleet status` | context user | setup and Orca server state |
 | `fleet pair` | context user | link that connects the Orca app to this server |
 | `fleet login` | context user | git identity, GitHub and the agent's login |
-| `fleet-rebuild` | root | pull the latest version of this repo and apply it |
+| `fleet rebuild` | root | pull the latest version of this repo and apply it |
 
 ## Repository layout
 
