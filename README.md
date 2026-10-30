@@ -73,6 +73,7 @@ fleet/
 ├── .github/
 │   ├── workflows/            nix: lock, lint, evaluate · tailscale: test, apply the policy · pr, issues: check titles and templates
 │   └── ISSUE_TEMPLATE/       bug and feature forms, next to pull_request_template.md
+├── SECURITY.md · CONTRIBUTING.md · CODE_OF_CONDUCT.md · LICENSE
 └── docs/
 ```
 
@@ -89,3 +90,7 @@ fleet/
 
 - Orca's skills come from the Orca repo through `npx skills`, and the `lavish` skill runs the latest `lavish-axi` CLI through `npx`, and the caveman Claude Code plugin is updated from its GitHub repo on every rebuild; those are the only parts not pinned by `flake.lock`.
 - Each Orca server uses a fair amount of memory. Contabo's guide recommends 12 GB for one; with two servers and several workers, size up.
+
+## Contributing and license
+
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md), and report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). Released under the [MIT License](LICENSE).
