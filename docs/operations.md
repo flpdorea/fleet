@@ -74,6 +74,7 @@ You can also pick an older generation from the boot menu.
 | Worker dispatch fails | `fleet status` | Orca must report `ready`. Wait for the server or restart it. |
 | `fleet status` says setup `pending` | `journalctl -u fleet-setup-<ctx>` | Installing the Orca skills needs the network (`npx skills`). `systemctl restart fleet-setup-<ctx>` retries. |
 | A worker fails on a downloaded binary | | `nix-ld` is enabled for this; if a tool needs an extra library, add it to `programs.nix-ld.libraries` in `nix/module.nix`. |
+| `docker`: cannot connect to the daemon | `systemctl --user status docker` as the user | The rootless daemon runs in the user's systemd manager. `systemctl --user restart docker` restarts it. An `orca-serve-<ctx>` started before Docker was added has no `DOCKER_HOST`: restart it. |
 
 ### The first boot did not finish
 

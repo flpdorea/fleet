@@ -94,6 +94,15 @@ in
       # nix-ld lets those generic Linux binaries run on NixOS.
       programs.nix-ld.enable = true;
 
+      # Containers for agents: rootless Docker, one daemon per context user
+      # (a systemd user service). Joining the docker group of a rootful daemon
+      # would amount to root and let one context read the other's files.
+      # Published ports are ordinary user sockets, so the firewall still applies.
+      virtualisation.docker.rootless = {
+        enable = true;
+        setSocketVariable = true;
+      };
+
       # Cloud images (Contabo's Ubuntu among them) leave an EFI partition on
       # the disk even though the machine boots GRUB from BIOS. systemd's
       # gpt-auto generator then tries to mount it on /boot, fails, and leaves
@@ -136,6 +145,9 @@ in
         ${ctx} = {
           isNormalUser = true;
           openssh.authorizedKeys.keys = cfg.authorizedKeys;
+          # Starts the user's systemd manager at boot, and with it the
+          # rootless Docker daemon, without anyone logging in.
+          linger = true;
         };
       });
 
@@ -214,6 +226,9 @@ in
 
             # Agents inherit this PATH: the harness, git, gh and the user's own tools.
             export PATH="${userPath ctx}:$PATH"
+            # The user's rootless Docker daemon. Login shells get this from
+            # setSocketVariable; this service has no XDG_RUNTIME_DIR.
+            export DOCKER_HOST="unix:///run/user/$(id -u)/docker.sock"
             cd "$HOME"
             exec orca-ide serve --port ${toString c.orcaPort} --pairing-address "$ip"
           '';

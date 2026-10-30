@@ -53,6 +53,7 @@ Per context (`<ctx>` is `personal` or `work`):
 |---|---|---|
 | `fleet-setup-<ctx>` | oneshot, as the user | Installs Orca's `orca-cli` and `orchestration` skills globally for the context's harness, and removes what firstmate left on older installs (its clone, `no-mistakes`, `treehouse`, the `*-axi` tools and their hooks). Reruns when the repo or Orca changes. |
 | `orca-serve-<ctx>` | long-running, as the user | Waits for the Tailscale IP, then runs `orca-ide serve --port <port> --pairing-address <tailscale ip>`. Logs to `/var/log/fleet/orca-<ctx>.log`. Not restarted by rebuilds. |
+| `docker` (user unit) | long-running, in the user's systemd manager | The context's rootless Docker daemon, on `/run/user/<uid>/docker.sock`. Lingering starts it at boot; `orca-serve-<ctx>` points agents at it with `DOCKER_HOST`. |
 
 Machine-wide: `sshd`, `tailscaled`, the firewall, `nix-ld`, weekly Nix garbage collection, and (first boot only) `fleet-bootstrap`.
 
@@ -86,4 +87,5 @@ The machine's own `/etc/nixos/flake.lock` records which commit of this repo it r
 - **Tailnet.** The VPS joins as `tag:fleet`. `tailscale/policy.hujson` only lets your own devices (`autogroup:member`) open connections, so an agent that goes wrong on the VPS cannot reach your laptop or phone through the tailnet.
 - **Pairing links** grant full access to an Orca server. They live in a per-user log readable only by that user. Orca issues a separate, revocable grant to each paired client; see [Remote Orca Servers](https://github.com/stablyai/orca/blob/main/docs/site/content/docs/remote-servers.mdx#access-and-security).
 - **Users** have no sudo. Workers run as their context user, so a misbehaving agent cannot change the system or read the other context's files.
+- **Containers.** Docker runs rootless, one daemon per context user, so a container has no more rights than its user. Nobody is in a `docker` group: access to a rootful daemon amounts to root. Ports a container publishes are ordinary sockets of the user, so the firewall still keeps them off the internet.
 - **Secrets.** The repo holds no secrets. The Tailscale key lives in `/etc/nixos/secrets/` outside the Nix store; all logins are created on the machine.
