@@ -16,12 +16,17 @@
       url = "github:anthropics/skills";
       flake = false;
     };
+    # Lavish, the browser editor for HTML artifacts; fleet installs its skill.
+    lavish-axi = {
+      url = "github:kunchenguid/lavish-axi";
+      flake = false;
+    };
   };
 
   outputs =
-    { self, nixpkgs, llm-agents, anthropic-skills, ... }:
+    { self, nixpkgs, llm-agents, anthropic-skills, lavish-axi, ... }:
     {
-      nixosModules.default = import ./nix/module.nix { inherit self llm-agents anthropic-skills; };
+      nixosModules.default = import ./nix/module.nix { inherit self llm-agents anthropic-skills lavish-axi; };
 
       # Minimal machine used only by CI to evaluate the module without a real VPS.
       nixosConfigurations.ci = nixpkgs.lib.nixosSystem {
