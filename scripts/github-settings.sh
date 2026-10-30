@@ -3,25 +3,22 @@
 # environments that hold the secrets workflows on main use, and the deploy key.
 # Safe to rerun: it overwrites what it manages and leaves the rest alone.
 #
-#   scripts/github-settings.sh [owner/repo]
+#   scripts/github-settings.sh [--environments] [owner/repo]
+#
+# --environments only creates the environments and the deploy key. It changes
+# nothing the workflows on main use today, so it can run before the pull
+# requests that start using them are merged.
 #
 # Needs gh logged in as a repo admin.
 set -euo pipefail
 
+envs_only=
+if [ "${1:-}" = --environments ]; then
+  envs_only=1
+  shift
+fi
 repo="${1:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
 actions_app=15368 # GitHub Actions
-
-# Squash only; the squash commit is the pull request title (checked to be a
-# Conventional Commit by the pr workflow) with the pull request body as its body.
-# Merged branches are deleted, and the "Update branch" button is shown (it can rebase).
-gh api -X PATCH "repos/$repo" --silent \
-  -F allow_squash_merge=true \
-  -F allow_merge_commit=false \
-  -F allow_rebase_merge=false \
-  -F delete_branch_on_merge=true \
-  -F allow_update_branch=true \
-  -f squash_merge_commit_title=PR_TITLE \
-  -f squash_merge_commit_message=PR_BODY
 
 # Environments hold the secrets that can change things: the deploy key
 # (deploy) and Tailscale's read-write OAuth client (tailscale, filled by
@@ -38,14 +35,14 @@ for env in deploy tailscale; do
   fi
 done
 
-# The nix workflow pushes flake.lock updates to main with this deploy key.
-# A ruleset on a personal repo cannot let GitHub Actions bypass it, but it
-# can let deploy keys bypass it, so this key is the only way around the PR
-# requirement. The private half lives only in the deploy environment's
-# DEPLOY_KEY secret; when that secret is missing, a new key replaces any old one.
+# Workflows on main push to it with this deploy key: flake.lock updates and
+# release tags. A ruleset on a personal repo cannot let GitHub Actions bypass
+# it, but it can let deploy keys bypass it, so this key is the only way around
+# the PR requirement. The private half lives only in the deploy environment's
+# DEPLOY_KEY secret; when that secret is missing, a new key replaces the old one.
 key_title="deploy (workflows on main)"
 if ! gh secret list --repo "$repo" --env deploy --json name --jq '.[].name' | grep -qxF DEPLOY_KEY; then
-  gh api "repos/$repo/keys" --jq '.[] | select(.title == "'"$key_title"'" or .title == "flake.lock (nix workflow)") | .id' |
+  gh api "repos/$repo/keys" --jq '.[] | select(.title == "'"$key_title"'") | .id' |
     while read -r id; do gh api -X DELETE "repos/$repo/keys/$id" --silent; done
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
@@ -53,10 +50,37 @@ if ! gh secret list --repo "$repo" --env deploy --json name --jq '.[].name' | gr
   gh secret set DEPLOY_KEY --repo "$repo" --env deploy <"$tmp/key"
   gh repo deploy-key add "$tmp/key.pub" --repo "$repo" --allow-write --title "$key_title" >/dev/null
 fi
-# Left over from before the deploy environment existed.
-if gh secret list --repo "$repo" --json name --jq '.[].name' | grep -qxF FLAKE_LOCK_DEPLOY_KEY; then
-  gh secret delete FLAKE_LOCK_DEPLOY_KEY --repo "$repo"
+
+if [ -n "$envs_only" ]; then
+  echo "Applied the environments and the deploy key to $repo."
+  exit 0
 fi
+
+# Left over from before the environments existed, when the deploy key and
+# Tailscale's read-write client were repo secrets that any pull request from
+# a branch of this repo could read. The Tailscale ones go only once
+# scripts/tailscale-bootstrap.sh has copied them into the environment.
+gh api "repos/$repo/keys" --jq '.[] | select(.title == "flake.lock (nix workflow)") | .id' |
+  while read -r id; do gh api -X DELETE "repos/$repo/keys/$id" --silent; done
+repo_secrets=$(gh secret list --repo "$repo" --json name --jq '.[].name')
+env_secrets=$(gh secret list --repo "$repo" --env tailscale --json name --jq '.[].name')
+for name in FLAKE_LOCK_DEPLOY_KEY TS_OAUTH_CLIENT_ID TS_OAUTH_SECRET; do
+  grep -qxF "$name" <<<"$repo_secrets" || continue
+  case "$name" in TS_*) grep -qxF "$name" <<<"$env_secrets" || continue ;; esac
+  gh secret delete "$name" --repo "$repo"
+done
+
+# Squash only; the squash commit is the pull request title (checked to be a
+# Conventional Commit by the pr workflow) with the pull request body as its body.
+# Merged branches are deleted, and the "Update branch" button is shown (it can rebase).
+gh api -X PATCH "repos/$repo" --silent \
+  -F allow_squash_merge=true \
+  -F allow_merge_commit=false \
+  -F allow_rebase_merge=false \
+  -F delete_branch_on_merge=true \
+  -F allow_update_branch=true \
+  -f squash_merge_commit_title=PR_TITLE \
+  -f squash_merge_commit_message=PR_BODY
 
 # main only changes through a squash-merged pull request whose required
 # checks pass on a branch up to date with main (so the merge cannot

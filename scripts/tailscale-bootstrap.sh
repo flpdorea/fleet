@@ -6,10 +6,12 @@
 #      read-only one that CI tests pull requests with,
 #   3. stores them in ~/.config/fleet/tailscale.env and in this repo's secrets:
 #      the read-write client in the tailscale environment, which only main can
-#      use, the read-only one at repo level,
+#      use, the read-only one at repo level and for Dependabot,
 #   4. revokes the access token it was given.
 #
-# Run scripts/github-settings.sh first: it creates the tailscale environment.
+# Run scripts/github-settings.sh first (--environments is enough): it creates
+# the tailscale environment. Its next full run deletes the old repo-level copy
+# of the read-write client.
 # Safe to rerun: it only creates the clients missing from tailscale.env.
 #
 # The only browser step: Settings -> Keys -> Generate access token (1 day),
@@ -77,15 +79,11 @@ echo "storing them in $env_file and in $repo's secrets"
 for name in TS_OAUTH_CLIENT_ID TS_OAUTH_SECRET; do
   printf "%s" "$(env_get "$name")" | gh secret set "$name" --repo "$repo" --env tailscale
 done
+# Dependabot's pull requests get Dependabot secrets, not Actions secrets, so
+# the read-only client goes to both.
 for name in TS_POLICY_TEST_CLIENT_ID TS_POLICY_TEST_SECRET; do
   printf "%s" "$(env_get "$name")" | gh secret set "$name" --repo "$repo"
-done
-# Left over from when the read-write client was a repo secret, which any
-# pull request from a branch of this repo could read.
-for name in TS_OAUTH_CLIENT_ID TS_OAUTH_SECRET; do
-  if gh secret list --repo "$repo" --json name --jq '.[].name' | grep -qxF "$name"; then
-    gh secret delete "$name" --repo "$repo"
-  fi
+  printf "%s" "$(env_get "$name")" | gh secret set "$name" --repo "$repo" --app dependabot
 done
 
 echo "revoking the access token"

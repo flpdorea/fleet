@@ -37,7 +37,7 @@ jobs:
         run: nix flake lock
 
       - name: Shellcheck
-        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh scripts/tailscale-authkey.sh scripts/tailscale-bootstrap.sh scripts/github-settings.sh
+        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh scripts/tailscale-authkey.sh scripts/tailscale-bootstrap.sh scripts/github-settings.sh .github/scripts/deploy-push.sh
 
       # zizmor audits the workflows for security problems (template injection,
       # unpinned actions, leaked credentials); actionlint checks they are valid.
@@ -56,11 +56,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: deploy
     steps:
-      # The deploy key (scripts/github-settings.sh) is the only actor the main
-      # ruleset lets push without a pull request.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked] the last step pushes flake.lock
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          persist-credentials: false
 
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         with:
@@ -78,12 +76,17 @@ jobs:
       - name: Evaluate the whole NixOS configuration
         run: nix eval --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath
 
+      # The deploy key (scripts/github-settings.sh) is the only actor the main
+      # ruleset lets push without a pull request. It exists only in this step,
+      # not while the updated inputs above are fetched and evaluated.
       - name: Publish flake.lock
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: |
           if [ -n "$(git status --porcelain flake.lock)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add flake.lock
             git commit -m "chore(nix): update pinned versions"
-            git push
+            .github/scripts/deploy-push.sh HEAD:refs/heads/main
           fi
