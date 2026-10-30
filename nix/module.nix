@@ -104,7 +104,13 @@ in
       environment.systemPackages =
         (with pkgs; [ git gh tmux jq curl nodejs_22 mise gcc gnumake pkg-config ])
         ++ [ agents.orca fleetCli ]
-        ++ lib.unique (lib.mapAttrsToList (_: c: primaryPkg.${c.primary}) contexts);
+        ++ lib.unique (lib.mapAttrsToList (_: c: primaryPkg.${c.primary}) contexts)
+        ++ (with pkgs; [ agent-browser chromium ]);
+
+      # Headless browser for agents (visual-validation skill). agent-browser
+      # would download Chrome for Testing, which doesn't run on NixOS; point it
+      # at Nix's Chromium instead.
+      environment.variables.AGENT_BROWSER_EXECUTABLE_PATH = "${pkgs.chromium}/bin/chromium";
 
       # Per-user PATH (mise shims first) and global npm prefix, no sudo needed.
       environment.extraInit = ''
@@ -184,6 +190,7 @@ in
           environment = {
             NPM_CONFIG_PREFIX = "/home/${ctx}/.npm-global";
             LIBGL_ALWAYS_SOFTWARE = "1";
+            AGENT_BROWSER_EXECUTABLE_PATH = "${pkgs.chromium}/bin/chromium";
           };
           path = [ agents.orca pkgs.tailscale pkgs.coreutils pkgs.xvfb ];
           script = ''
