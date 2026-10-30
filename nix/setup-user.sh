@@ -85,5 +85,12 @@ if [ "$FLEET_PRIMARY" = claude ]; then
   done
 fi
 
+# Default language runtimes from /etc/mise/config.toml (homes/mise.toml).
+# Already installed versions are skipped. A failed download must not block
+# the rest of the setup; the next rebuild or a manual `mise install` retries.
+echo "installing default runtimes with mise"
+cd "$HOME"
+MISE_YES=1 mise install || echo "mise install failed; run it again as $FLEET_CONTEXT" >&2
+
 touch "$FLEET/.ready"
 echo "fleet ready"

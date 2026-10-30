@@ -58,11 +58,12 @@ fleet/
 ├── nix/
 │   ├── module.nix            the machine: users, Orca, Tailscale, firewall, services
 │   ├── fleet.sh              the fleet command (packaged by Nix)
-│   └── setup-user.sh         installs Orca's skills and Claude settings, removes firstmate leftovers
+│   └── setup-user.sh         installs Orca's skills, Claude settings and mise runtimes, removes firstmate leftovers
 ├── homes/
 │   ├── contexts.nix          personal = claude :6768 · work = claude :6769
 │   ├── claude-settings.json  merged into each user's ~/.claude/settings.json
 │   ├── CLAUDE.md             installed as each user's ~/.claude/CLAUDE.md
+│   ├── mise.toml             default language runtimes, installed as /etc/mise/config.toml
 │   └── skills/               installed in ~/.claude/skills, with Anthropic's skill-creator
 ├── tailscale/policy.hujson   tailnet access policy, applied by CI
 ├── scripts/
@@ -78,7 +79,7 @@ fleet/
 |---|---|
 | [Architecture](docs/architecture.md) | How the pieces fit, why one Linux user per context, the security model |
 | [Installation](docs/installation.md) | Prerequisites, the install command, first boot, logins, pairing |
-| [Configuration](docs/configuration.md) | Contexts, Orca skills, adding a context |
+| [Configuration](docs/configuration.md) | Contexts, Orca skills, language runtimes, adding a context |
 | [Operations](docs/operations.md) | Daily use, updates, restarts, troubleshooting |
 
 ## Known limits
