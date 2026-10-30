@@ -1,4 +1,4 @@
-{ self, llm-agents, firstmate }:
+{ self, llm-agents }:
 { config, lib, pkgs, ... }:
 
 let
@@ -30,7 +30,7 @@ let
 
   setupScript = pkgs.writeShellApplication {
     name = "fleet-setup-user";
-    runtimeInputs = with pkgs; [ coreutils gnugrep gnused git gh jq curl bash nodejs_22 ];
+    runtimeInputs = (with pkgs; [ coreutils gnused gnugrep jq procps git bash nodejs_22 ]) ++ [ agents.orca ];
     text = builtins.readFile ./setup-user.sh;
   };
 
@@ -38,7 +38,7 @@ let
 in
 {
   options.fleet = {
-    enable = lib.mkEnableOption "fleet (firstmate + headless Orca)";
+    enable = lib.mkEnableOption "fleet (headless Orca + its orchestration skills)";
 
     contexts = lib.mkOption {
       type = lib.types.listOf (lib.types.enum (builtins.attrNames allContexts));
@@ -90,8 +90,8 @@ in
         trustedInterfaces = [ "tailscale0" ];
       };
 
-      # firstmate installs no-mistakes and the *-axi tools on its own (they have
-      # no Nix package); nix-ld lets those generic Linux binaries run on NixOS.
+      # Agents install tools that have no Nix package (npm and release binaries);
+      # nix-ld lets those generic Linux binaries run on NixOS.
       programs.nix-ld.enable = true;
 
       # Cloud images (Contabo's Ubuntu among them) leave an EFI partition on
@@ -136,20 +136,18 @@ in
         lib.mapAttrsToList (ctx: _: "f /var/log/fleet/orca-${ctx}.log 0600 ${ctx} users -") contexts;
 
       systemd.services = forContexts (ctx: c: {
-        # Prepares the user's firstmate: clone at the pinned commit, config from
-        # this repo, and the toolchain firstmate itself asks for. Runs at boot
-        # and on every rebuild that changes the repo or the firstmate pin.
+        # Prepares the user: installs Orca's orca-cli and orchestration skills
+        # globally for the context's harness. Runs at boot and on every rebuild
+        # that changes the repo or Orca, so the skills follow Orca updates.
         "fleet-setup-${ctx}" = {
-          description = "fleet: prepare firstmate for ${ctx}";
+          description = "fleet: prepare ${ctx}";
           wantedBy = [ "multi-user.target" ];
           wants = [ "network-online.target" ];
           after = [ "network-online.target" ];
-          restartTriggers = [ firstmate.rev self.outPath ];
+          restartTriggers = [ agents.orca self.outPath ];
           environment = {
             FLEET_CONTEXT = ctx;
             FLEET_PRIMARY = c.primary;
-            FLEET_CONFIG_SRC = "${self}/homes/${ctx}/config";
-            FIRSTMATE_REV = firstmate.rev;
             NPM_CONFIG_PREFIX = "/home/${ctx}/.npm-global";
           };
           path = [ setupScript ];

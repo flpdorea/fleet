@@ -1,8 +1,7 @@
-# fleet - this user's first mate (one Linux user per context).
+# fleet - this user's coordinator session (one Linux user per context).
 # Packaged by the Nix module with writeShellApplication.
 
 FLEET="$HOME/fleet"
-FM="$FLEET/firstmate"
 CTX=$(cat "$FLEET/.context" 2>/dev/null) || {
   echo "fleet: this user is not a fleet context (or its setup has not run yet)" >&2
   exit 1
@@ -14,19 +13,19 @@ LOG="/var/log/fleet/orca-$CTX.log"
 usage() {
   cat >&2 <<'EOF'
 usage: fleet [command]
-  (none)   open (or reattach to) the first mate in a tmux session
+  (none)   open (or reattach to) the coordinator in a tmux session
   login    git identity, GitHub and the agent's login
   pair     link that connects the Orca app to this server
-  status   setup, Orca server and first mate session
+  status   setup, Orca server and coordinator session
 EOF
 }
 
 open() {
-  if ! tmux has-session -t =firstmate 2>/dev/null; then
-    tmux new-session -d -s firstmate -c "$FM" "$PRIMARY"
+  if ! tmux has-session -t =fleet 2>/dev/null; then
+    tmux new-session -d -s fleet -c "$HOME" "$PRIMARY"
   fi
-  if [ -n "${TMUX:-}" ]; then exec tmux switch-client -t =firstmate; fi
-  exec tmux attach -t =firstmate
+  if [ -n "${TMUX:-}" ]; then exec tmux switch-client -t =fleet; fi
+  exec tmux attach -t =fleet
 }
 
 login() {
@@ -52,7 +51,7 @@ login() {
         echo "Pi: run /login, choose the ChatGPT subscription (openai-codex), open the link"
         echo "in your browser and paste the final URL back. Then /quit."
         read -r -p "Press Enter to open Pi... " _
-        (cd "$FM" && pi) || true
+        (cd "$HOME" && pi) || true
       fi
       ;;
     claude)
@@ -60,7 +59,7 @@ login() {
         echo
         echo "Claude: sign in with this context's account. Then /exit."
         read -r -p "Press Enter to open Claude... " _
-        (cd "$FM" && claude) || true
+        (cd "$HOME" && claude) || true
       fi
       ;;
   esac
@@ -79,7 +78,7 @@ pair() {
 
 status() {
   printf 'setup:       '
-  if [ -f "$FM/config/backend" ]; then echo "ok"; else echo "pending (systemctl status fleet-setup-$CTX)"; fi
+  if [ -f "$FLEET/.ready" ]; then echo "ok"; else echo "pending (systemctl status fleet-setup-$CTX)"; fi
   printf 'orca:        '
   orca status --json 2>/dev/null | jq -r '
       (.result.runtime // {}) as $r
@@ -87,8 +86,8 @@ status() {
         elif ($r.reachable // .result.runtimeReachable) == true and ($r.state // .result.runtimeState) == "ready" then "ready"
         else "not ready (\($r.state // .result.runtimeState // "?"))" end' 2>/dev/null \
     || echo "no response (systemctl status orca-serve-$CTX)"
-  printf 'first mate:  '
-  if tmux has-session -t =firstmate 2>/dev/null; then echo "running (fleet)"; else echo "not running"; fi
+  printf 'coordinator: '
+  if tmux has-session -t =fleet 2>/dev/null; then echo "running (fleet)"; else echo "not running"; fi
 }
 
 case "${1:-}" in

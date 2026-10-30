@@ -34,22 +34,6 @@
         "type": "github"
       }
     },
-    "firstmate": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1792996439,
-        "narHash": "sha256-7hgRT8CXmngnR6QHpT4RUMZncoudeiAS+az4qHw+4zo=",
-        "owner": "kunchenguid",
-        "repo": "firstmate",
-        "rev": "127f0f30a4b272b68ec9196bf47d4db90ad40617",
-        "type": "github"
-      },
-      "original": {
-        "owner": "kunchenguid",
-        "repo": "firstmate",
-        "type": "github"
-      }
-    },
     "flake-parts": {
       "inputs": {
         "nixpkgs-lib": [
@@ -127,7 +111,6 @@
     },
     "root": {
       "inputs": {
-        "firstmate": "firstmate",
         "llm-agents": "llm-agents",
         "nixpkgs": "nixpkgs_2"
       }

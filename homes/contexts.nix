@@ -1,5 +1,4 @@
-# One context = one Linux user + one Orca server + one firstmate fleet.
-# Each context's firstmate config lives in homes/<context>/config/.
+# One context = one Linux user + one Orca server + one coordinator harness.
 {
   personal = {
     primary = "pi"; # GPT-5.6 through the ChatGPT subscription

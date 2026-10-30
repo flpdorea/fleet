@@ -1,5 +1,5 @@
 {
-  description = "fleet: firstmate + headless Orca on a NixOS VPS";
+  description = "fleet: headless Orca and its orchestration skills on a NixOS VPS";
 
   nixConfig = {
     extra-substituters = [ "https://cache.numtide.com" ];
@@ -11,17 +11,12 @@
     # Orca, Pi and Claude Code, packaged and updated daily by numtide.
     # No "follows": that way the binaries come prebuilt from their cache.
     llm-agents.url = "github:numtide/llm-agents.nix";
-    # firstmate is cloned per user at the commit pinned in flake.lock.
-    firstmate = {
-      url = "github:kunchenguid/firstmate";
-      flake = false;
-    };
   };
 
   outputs =
-    { self, nixpkgs, llm-agents, firstmate, ... }:
+    { self, nixpkgs, llm-agents, ... }:
     {
-      nixosModules.default = import ./nix/module.nix { inherit self llm-agents firstmate; };
+      nixosModules.default = import ./nix/module.nix { inherit self llm-agents; };
 
       # Minimal machine used only by CI to evaluate the module without a real VPS.
       nixosConfigurations.ci = nixpkgs.lib.nixosSystem {

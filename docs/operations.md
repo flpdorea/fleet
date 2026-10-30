@@ -4,18 +4,18 @@
 
 ```bash
 ssh fleet-personal      # or fleet-work (see installation: SSH key and config)
-fleet                   # attach to the first mate
+fleet                   # attach to the coordinator
 ```
 
 - Detach with `Ctrl-b` then `d`. Nothing stops.
 - Watch and type into any worker's terminal from the Orca app.
-- `fleet status` shows whether setup ran, whether Orca is ready, and whether the first mate is running.
+- `fleet status` shows whether setup ran, whether Orca is ready, and whether the coordinator is running.
 
-firstmate's own commands work inside the session, for example `/bearings` for a fleet digest or `/afk` before you step away. See the [firstmate README](https://github.com/kunchenguid/firstmate#built-in-skills).
+Ask the coordinator to split work across workers; its `orchestration` skill handles dispatch, messages and waits. `orca skills list` shows the Orca skills available.
 
 ## Updating
 
-### This repo's config (routing, contexts, module)
+### This repo's config (contexts, skills, module)
 
 1. Edit, commit and push.
 2. Wait for the `nix` workflow to pass.
@@ -24,15 +24,15 @@ firstmate's own commands work inside the session, for example `/bearings` for a 
    fleet-rebuild
    ```
 
-`fleet-rebuild` updates the machine's `fleet` input to the latest commit and switches to it. `fleet-setup-<ctx>` reruns when the repo or the firstmate pin changed, so new config lands in each firstmate checkout.
+`fleet-rebuild` updates the machine's `fleet` input to the latest commit and switches to it. `fleet-setup-<ctx>` reruns when the repo or Orca changed, so each harness gets fresh Orca skills.
 
-### Versions (NixOS, Orca, Pi, Claude Code, firstmate)
+### Versions (NixOS, Orca, Pi, Claude Code)
 
 CI runs `nix flake update` every Monday and commits the new `flake.lock` if the configuration still evaluates. To update now, run the workflow manually (**Actions → nix → Run workflow**), or locally:
 
 ```bash
-nix flake update            # everything
-nix flake update firstmate  # just one input
+nix flake update             # everything
+nix flake update llm-agents  # just one input
 ```
 
 Then push and run `fleet-rebuild`.
@@ -61,8 +61,6 @@ You can also pick an older generation from the boot menu.
 
 ## Things not to do
 
-- **Do not run `/updatefirstmate`** inside a fleet. It moves firstmate past the commit pinned in `flake.lock`, and the next `fleet-setup` run would move it back. Update the `firstmate` input instead.
-- **Do not edit `~/fleet/firstmate/config/` by hand** for anything that also exists in `homes/<ctx>/config/`. The setup service overwrites those files. Files that exist only on the machine (for example `/supervision-model` choices) are left alone.
 - **Do not open the Orca ports in the firewall.** Pair over Tailscale.
 
 ## Troubleshooting
@@ -73,11 +71,9 @@ You can also pick an older generation from the boot menu.
 | `fleet status` says Orca `no response` | `systemctl status orca-serve-<ctx>`, `tail -n 50 /var/log/fleet/orca-<ctx>.log` | Usually Tailscale is down: `tailscale status`, then `tailscale up` as root. |
 | `fleet pair` prints no link | the log above | The server is still starting or failing. Restart it: `systemctl restart orca-serve-<ctx>`. |
 | Orca app shows the server as disconnected | Tailscale on your device | Both devices must be on the same tailnet. Update Orca on both sides if it reports an incompatible protocol. |
-| Spawns fail with a `backend=orca` error | `fleet status` | firstmate requires Orca to report `reachable=true` and `state=ready`. Wait for the server or restart it. |
-| `fleet-setup` lists `MISSING: ...` | the setup log | A runtime tool failed to install (often a network hiccup). `systemctl restart fleet-setup-<ctx>` retries. |
+| Worker dispatch fails | `fleet status` | Orca must report `ready`. Wait for the server or restart it. |
+| `fleet status` says setup `pending` | `journalctl -u fleet-setup-<ctx>` | Installing the Orca skills needs the network (`npx skills`). `systemctl restart fleet-setup-<ctx>` retries. |
 | A worker fails on a downloaded binary | | `nix-ld` is enabled for this; if a tool needs an extra library, add it to `programs.nix-ld.libraries` in `nix/module.nix`. |
-| Pi worker spawns are refused | `pi auth check --provider openai-codex` as `personal` | The `pi-account` pin refuses launches when the subscription is not signed in. Run `fleet login`. |
-| `CREW_DISPATCH: invalid ...` | the setup log | A model, harness or effort in `crew-dispatch.json` is not accepted. See [model IDs](configuration.md#model-ids). |
 
 ### The first boot did not finish
 
@@ -93,4 +89,4 @@ journalctl -u fleet-bootstrap
 ## Removing a context
 
 1. Remove it from `fleet.contexts` in `/etc/nixos/fleet.nix` and run `fleet-rebuild`. Its services stop.
-2. `/home/<ctx>` is not deleted, so its logins, firstmate state and project clones stay. Remove the directory by hand when you are sure you no longer need it.
+2. `/home/<ctx>` is not deleted, so its logins, harness config and Orca worktrees stay. Remove the directory by hand when you are sure you no longer need it.
