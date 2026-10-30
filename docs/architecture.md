@@ -55,7 +55,7 @@ Per context (`<ctx>` is `personal` or `work`):
 
 | Unit | Type | Does |
 |---|---|---|
-| `fleet-setup-<ctx>` | oneshot, as the user | Installs Orca's `orca-cli` and `orchestration` skills globally for the context's harness. Reruns when the repo or Orca changes. |
+| `fleet-setup-<ctx>` | oneshot, as the user | Installs Orca's `orca-cli` and `orchestration` skills globally for the context's harness, and removes what firstmate left on older installs (its clone, `no-mistakes`, `treehouse`, the `*-axi` tools and their hooks). Reruns when the repo or Orca changes. |
 | `orca-serve-<ctx>` | long-running, as the user | Waits for the Tailscale IP, then runs `orca-ide serve --port <port> --pairing-address <tailscale ip>`. Logs to `/var/log/fleet/orca-<ctx>.log`. Not restarted by rebuilds. |
 
 Machine-wide: `sshd`, `tailscaled`, the firewall, `nix-ld`, weekly Nix garbage collection, and (first boot only) `fleet-bootstrap`.

@@ -30,7 +30,7 @@ let
 
   setupScript = pkgs.writeShellApplication {
     name = "fleet-setup-user";
-    runtimeInputs = (with pkgs; [ coreutils git bash nodejs_22 ]) ++ [ agents.orca ];
+    runtimeInputs = (with pkgs; [ coreutils gnused gnugrep jq procps git bash nodejs_22 ]) ++ [ agents.orca ];
     text = builtins.readFile ./setup-user.sh;
   };
 

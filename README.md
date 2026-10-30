@@ -59,7 +59,7 @@ fleet/
 ├── nix/
 │   ├── module.nix            the machine: users, Orca, Tailscale, firewall, services
 │   ├── fleet.sh              the fleet command (packaged by Nix)
-│   └── setup-user.sh         installs Orca's skills for each user's harness
+│   └── setup-user.sh         installs Orca's skills, removes firstmate leftovers
 ├── homes/
 │   └── contexts.nix          personal = pi :6768 · work = claude :6769
 ├── tailscale/policy.hujson   tailnet access policy, applied by CI
