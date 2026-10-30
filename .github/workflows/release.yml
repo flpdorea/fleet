@@ -1,0 +1,71 @@
+# Publishes a release of main, run by hand once main has run on the
+# maintainer's VPS. The version and notes come from the Conventional Commit
+# titles since the last tag (cliff.toml). The release carries a copy of
+# install.sh that installs that same tag, with a provenance attestation:
+#
+#   gh attestation verify install.sh -R flpdorea/fleet
+#
+# The tag is pushed with the deploy key, the only actor the tags ruleset lets
+# create one, and releases are immutable (scripts/github-settings.sh).
+name: release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: deploy
+    permissions:
+      contents: write # create the release
+      id-token: write # sign the attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked] a later step pushes the tag
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+
+      - name: Next version and notes
+        id: version
+        run: |
+          version=$(nix run nixpkgs#git-cliff -- --bumped-version)
+          if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
+            echo "::error::Nothing to release: no Conventional Commit since $version."
+            exit 1
+          fi
+          nix run nixpkgs#git-cliff -- --unreleased --tag "$version" --strip all -o notes.md
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - name: install.sh for this release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir dist
+          sed "s/^FLEET_BRANCH=\"\${FLEET_BRANCH:-main}\"$/FLEET_BRANCH=\"\${FLEET_BRANCH:-$VERSION}\"/" install.sh >dist/install.sh
+          grep -qxF "FLEET_BRANCH=\"\${FLEET_BRANCH:-$VERSION}\"" dist/install.sh
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/install.sh
+
+      - name: Tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "$VERSION"
+          git push origin "refs/tags/$VERSION"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: gh release create "$VERSION" dist/install.sh --title "$VERSION" --notes-file notes.md --verify-tag

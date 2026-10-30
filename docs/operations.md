@@ -24,7 +24,7 @@ The `orca-cli` and `orchestration` skills are installed for each harness, so an 
    fleet rebuild
    ```
 
-`fleet rebuild` updates the machine's `fleet` input to the latest commit and switches to it. `fleet-setup-<ctx>` reruns when the repo or Orca changed, so each harness gets fresh Orca skills.
+`fleet rebuild` updates the machine's `fleet` input and switches to it: to the latest release, or to the latest commit when the machine follows a branch (see [Releases](#releases)). `fleet-setup-<ctx>` reruns when the repo or Orca changed, so each harness gets fresh Orca skills.
 
 ### Versions (NixOS, Orca, Pi, Claude Code)
 
@@ -36,6 +36,30 @@ nix flake update llm-agents  # just one input
 ```
 
 Then open a pull request, merge it and run `fleet rebuild`.
+
+### Releases
+
+A machine follows one of two tracks, set by `inputs.fleet.url` in its `/etc/nixos/flake.nix`:
+
+| Track | `inputs.fleet.url` | `fleet rebuild` moves to |
+|---|---|---|
+| Releases (what `install.sh` from a release sets up) | `github:flpdorea/fleet/v0.3.1` | the latest release |
+| A branch, usually `main` | `github:flpdorea/fleet/main` | the latest commit on it |
+
+The maintainer's VPS follows `main`, so every change runs there before it is released. To switch tracks, or pin or roll back to a release:
+
+```bash
+fleet rebuild --ref main      # follow main
+fleet rebuild --ref v0.3.1    # that release; later rebuilds follow releases again
+```
+
+On releases, `fleet rebuild` asks before moving to a release that may need manual steps: a new minor version below 1.0, a new major version after. Read its notes first.
+
+To publish a release, run **Actions → release → Run workflow** on `main`. It computes the version from the Conventional Commit titles since the last release (`feat` bumps the minor version, anything else the patch; see `cliff.toml`), tags it, and publishes the notes with a copy of `install.sh` that installs that release. The weekly `flake.lock` update counts as a patch. Tags and releases are immutable, and only the workflow can create them. Anyone can check that an `install.sh` came from this workflow:
+
+```bash
+gh attestation verify install.sh -R flpdorea/fleet
+```
 
 ### Restarting Orca after an update
 

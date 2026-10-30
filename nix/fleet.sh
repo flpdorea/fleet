@@ -13,7 +13,8 @@ As a context user (personal, work):
   status    show whether setup ran and whether the Orca server is ready
 
 As root:
-  rebuild   pull the latest version of the fleet repo and apply it
+  rebuild   update to the latest release (or the branch it follows) and apply it
+            --ref <tag|branch>  switch to another release or branch
 
   help      show this message
 EOF
@@ -31,8 +32,45 @@ context() {
   LOG="/var/log/fleet/orca-$CTX.log"
 }
 
+# The release series a tag belongs to: below 1.0 a minor bump can break
+# things (cliff.toml), above it only a major one. v0.4.2 -> v0.4, v1.3.0 -> v1.
+series() {
+  case "$1" in
+    v0.*) echo "${1%.*}" ;;
+    *) echo "${1%%.*}" ;;
+  esac
+}
+
+# The machine follows a branch of the fleet repo, or its releases when
+# inputs.fleet.url in /etc/nixos/flake.nix points at a v* tag. On a tag,
+# rebuild moves to the latest release, asking first when it may break things;
+# --ref <tag|branch> moves to any other tag or branch.
 rebuild() {
   [ "$(id -u)" -eq 0 ] || { echo "fleet rebuild: run as root" >&2; exit 1; }
+  local flake=/etc/nixos/flake.nix url repo ref target answer
+  url=$(sed -n 's/^ *inputs\.fleet\.url = "\(.*\)";$/\1/p' "$flake")
+  [[ $url =~ ^github:([^/]+/[^/]+)/(.+)$ ]] ||
+    { echo "fleet rebuild: cannot read inputs.fleet.url in $flake" >&2; exit 1; }
+  repo=${BASH_REMATCH[1]} ref=${BASH_REMATCH[2]} target=${BASH_REMATCH[2]}
+
+  if [ "${1:-}" = --ref ]; then
+    target=${2:?usage: fleet rebuild --ref <tag|branch>}
+    shift 2
+  elif [[ $ref == v* ]]; then
+    target=$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" | jq -r .tag_name)
+    if [ "$(series "$target")" != "$(series "$ref")" ]; then
+      echo "fleet: $target may need manual steps; read https://github.com/$repo/releases first."
+      read -r -p "Move from $ref to $target? [y/N] " answer || answer=
+      [ "$answer" = y ] || target=$ref
+    fi
+  fi
+
+  if [ "$target" != "$ref" ]; then
+    git ls-remote --exit-code "https://github.com/$repo" "refs/tags/$target" "refs/heads/$target" >/dev/null ||
+      { echo "fleet rebuild: $repo has no tag or branch $target" >&2; exit 1; }
+    echo "fleet: $ref -> $target"
+    sed -i "s|^\( *inputs\.fleet\.url = \"github:$repo/\).*\";$|\1$target\";|" "$flake"
+  fi
   nix flake update fleet --flake /etc/nixos
   exec nixos-rebuild switch --flake /etc/nixos#fleet "$@"
 }
