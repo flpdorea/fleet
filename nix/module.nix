@@ -103,7 +103,9 @@ in
 
       environment.systemPackages =
         (with pkgs; [ git gh tmux jq curl nodejs_22 mise gcc gnumake pkg-config ])
-        ++ [ agents.orca fleetCli ]
+        # agent-browser: headless browser for agents (visual-validation skill),
+        # wrapped with its own Nix Chromium.
+        ++ [ agents.orca agents.agent-browser fleetCli ]
         ++ lib.unique (lib.mapAttrsToList (_: c: primaryPkg.${c.primary}) contexts);
 
       # Per-user PATH (mise shims first) and global npm prefix, no sudo needed.

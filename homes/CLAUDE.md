@@ -21,6 +21,7 @@
 ## Review
 
 - After a worthwhile implementation, before calling it done, use the `auto-review` skill: a second Claude agent, started through Orca orchestration, reviews the diff and you fix what it finds.
+- Any change that can alter what users see in a web UI is not done until it passes the `visual-validation` skill: a second Claude agent, started through Orca orchestration (a subagent outside Orca), compares before and after across viewports, color schemes and states, and the before/after screenshots go into the PR body.
 
 ## Self-improvement
 
