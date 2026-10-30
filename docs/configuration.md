@@ -60,6 +60,7 @@ For contexts whose harness is `claude`, `fleet-setup-<ctx>` merges `homes/claude
 | `spinnerTipsEnabled: false` | No feature tips under the spinner while Claude works. |
 | `feedbackSurveyRate: 0` | No session quality survey. |
 | `cleanupPeriodDays: 365` | Keep transcripts, and so `/resume`, for a year instead of the default 30 days. |
+| `extraKnownMarketplaces.caveman`, `enabledPlugins["caveman@caveman"]` | The [caveman](https://github.com/JuliusBrussee/caveman) plugin: terse replies that drop filler but keep code, commands and errors exact, to save output tokens. It starts on in every new session; say `stop caveman` to turn it off for a session, or put `{"defaultMode": "off"}` in `~/.config/caveman/config.json` to start sessions without it. `fleet-setup-<ctx>` installs and updates it with `claude plugin`. |
 
 Auto-updates need no setting: the Nix package's wrapper already sets `DISABLE_AUTOUPDATER=1`, and `flake.lock` decides the version.
 
