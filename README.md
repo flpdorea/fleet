@@ -18,7 +18,7 @@ The whole machine is declared in this flake: users, firewall, Tailscale, both Or
 
 ## Quick start
 
-1. Once per tailnet: generate a Tailscale access token and run `scripts/tailscale-bootstrap.sh` (see [Tailscale access](docs/installation.md#tailscale-access)).
+1. Once per repo, in a fork: run `scripts/github-settings.sh`, set up Tailscale and publish a first release ([One-time repo setup](docs/installation.md#one-time-repo-setup)). Once per tailnet: generate a Tailscale access token and run `scripts/tailscale-bootstrap.sh` (see [Tailscale access](docs/installation.md#tailscale-access)).
 2. Create a dedicated `~/.ssh/fleet` key, add the `fleet`, `fleet-personal` and `fleet-work` hosts to `~/.ssh/config` ([SSH key and config](docs/installation.md#ssh-key-and-config)), and let root accept the key (NixOS disables password logins):
    ```bash
    ssh-copy-id -i ~/.ssh/fleet.pub fleet
