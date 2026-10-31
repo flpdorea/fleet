@@ -26,6 +26,13 @@ let
     text = builtins.readFile ./claude-hook.sh;
   };
 
+  # Notifies the phone when a pull request is ready to merge (fleet-pr-ready-<ctx>).
+  prReady = pkgs.writeShellApplication {
+    name = "fleet-pr-ready";
+    runtimeInputs = (with pkgs; [ coreutils gnugrep gh ]) ++ [ fleetCli ];
+    text = builtins.readFile ./pr-ready.sh;
+  };
+
   setupScript = pkgs.writeShellApplication {
     name = "fleet-setup-user";
     runtimeInputs = (with pkgs; [ coreutils gnused gnugrep jq procps git gh bash nodejs_22 mise ]) ++ [ agents.orca agents.claude-code ];
@@ -271,6 +278,29 @@ in
             RestartSec = 10;
             StandardOutput = "append:/var/log/fleet/orca-${ctx}.log";
             StandardError = "append:/var/log/fleet/orca-${ctx}.log";
+          };
+        };
+
+        # Polls GitHub for the context's pull requests that are ready to
+        # merge and notifies the phone (nix/pr-ready.sh).
+        "fleet-pr-ready-${ctx}" = {
+          description = "fleet: notify ${ctx}'s pull requests ready to merge";
+          wants = [ "network-online.target" ];
+          after = [ "network-online.target" "fleet-setup-${ctx}.service" ];
+          serviceConfig = {
+            Type = "oneshot";
+            User = ctx;
+            ExecStart = lib.getExe prReady;
+          };
+        };
+      });
+
+      systemd.timers = forContexts (ctx: _: {
+        "fleet-pr-ready-${ctx}" = {
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            OnBootSec = "5min";
+            OnUnitActiveSec = "5min";
           };
         };
       });
