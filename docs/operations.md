@@ -85,7 +85,7 @@ You can also pick an older generation from the boot menu.
 
 ## Things not to do
 
-- **Do not open the Orca ports in the firewall.** Pair over Tailscale.
+- **Do not open the Orca or ntfy ports in the firewall.** Pair and subscribe over Tailscale.
 
 ## Troubleshooting
 

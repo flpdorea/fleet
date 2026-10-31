@@ -34,6 +34,9 @@ let
     cp -r ${lavish-axi}/skills/lavish $out/
   '';
 
+  # The ntfy server that pushes notifications to the phone.
+  ntfyPort = 2586;
+
   # mise shims come first so project and default runtimes win over nodejs_22.
   userPath = ctx: "/home/${ctx}/.local/share/mise/shims:/home/${ctx}/.local/bin:/home/${ctx}/.npm-global/bin:/run/wrappers/bin:/run/current-system/sw/bin";
 in
@@ -57,6 +60,13 @@ in
       type = lib.types.nullOr lib.types.str;
       default = null;
       description = "File holding a Tailscale auth key (kept outside the Nix store).";
+    };
+
+    ntfyBaseUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "http://fleet:${toString ntfyPort}";
+      example = "http://fleet.tail1234.ts.net:${toString ntfyPort}";
+      description = "Address the phone uses to reach the ntfy server, through the tailnet.";
     };
   };
 
@@ -84,6 +94,19 @@ in
         enable = true;
         authKeyFile = cfg.tailscaleAuthKeyFile;
         extraUpFlags = [ "--hostname=fleet" ];
+      };
+      # Push notifications to the phone: one ntfy topic per context, named
+      # with a secret only that user and the phone know (~/fleet/.ntfy-topic),
+      # which `fleet notify` publishes to. Like Orca's, the port is not in
+      # allowedTCPPorts, so only the tailnet reaches it. No attachments: no
+      # one can fill the disk through it.
+      services.ntfy-sh = {
+        enable = true;
+        settings = {
+          base-url = cfg.ntfyBaseUrl;
+          listen-http = ":${toString ntfyPort}";
+          attachment-cache-dir = "";
+        };
       };
       networking.firewall = {
         enable = true;
@@ -130,6 +153,8 @@ in
       environment.etc."mise/config.toml".source = ../homes/mise.toml;
 
       environment.etc."fleet/contexts.json".text = builtins.toJSON contexts;
+      environment.etc."fleet/ntfy-url".text = "http://127.0.0.1:${toString ntfyPort}";
+      environment.etc."fleet/ntfy-base-url".text = cfg.ntfyBaseUrl;
 
       systemd.tmpfiles.rules = [
         "d /var/log/fleet 0711 root root -"
