@@ -22,7 +22,7 @@ Comment on an issue, in a repo added to the context's Orca, with a comment that 
 Keep the old flag working for one more release.
 ```
 
-Within a minute, `fleet-agent-comments-<ctx>` starts the context's agent in a new worktree named after the issue, reacts to the comment with eyes and replies with the worktree and branch; the worktree shows up in the Orca app. The first line may set `--effort` (`low` to `max`) and `--model`; the rest is instructions. With none, the agent plans the work in Lavish and waits for your approval. Only comments written by the context's GitHub account (the one `fleet login` signed in) count, and each comment starts one agent, even if you edit it later. If the agent cannot start, the reply says so; the details are in `journalctl -u fleet-agent-comments-<ctx>`.
+Within a minute, `fleet-agent-comments-<ctx>` starts the context's agent in a new worktree named after the issue, reacts to the comment with eyes and replies with the worktree and branch; the worktree shows up in the Orca app. The first line may set `--effort` (`low` to `max`) and `--model`; the rest is instructions. With none, the agent plans the work in Lavish and waits for your approval. Only comments written by the context's GitHub account (the one `fleet login` signed in) count, and each comment starts one agent: editing it, or an older comment, starts nothing. A comment posted while Orca or GitHub was unreachable for more than an hour is dropped. If the agent cannot start, the reply says so; the details are in `journalctl -u fleet-agent-comments-<ctx>`.
 
 ## Updating
 

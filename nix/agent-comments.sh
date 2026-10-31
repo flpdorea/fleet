@@ -20,8 +20,12 @@ if [ ! -s "$state/since" ]; then
   echo "$now" >"$state/since"
   exit 0
 fi
-# Look back two more minutes for clock skew; seen keeps them from starting twice.
-since=$(date -u -d "@$(($(cat "$state/since") - 120))" +%Y-%m-%dT%H:%M:%SZ)
+# Look back two more minutes for clock skew; seen keeps them from starting
+# twice. After an outage (Orca or gh down, a repo failing), look back an hour
+# at most: older comments are dropped, not started all at once.
+last=$(cat "$state/since")
+[ "$last" -ge $((now - 3600)) ] || last=$((now - 3600))
+since=$(date -u -d "@$((last - 120))" +%Y-%m-%dT%H:%M:%SZ)
 
 gh auth status >/dev/null 2>&1 || exit 0
 me=$(gh api user --jq .login) || exit 0
@@ -55,15 +59,15 @@ start() { # <repo id> <slug> <comment id> <issue> <comment url> <body>
   # A failure before this point retries on the next run; after it, the
   # comment is never handled twice.
   title=$(gh api "repos/$slug/issues/$issue" --jq .title) || return 1
-  echo "$id" >>"$seen"
+  echo "$id" >>"$seen" || return 1
 
   first=${body%%$'\n'*}
   rest=${body#"$first"}
   read -ra toks <<<"${first#/agent}"
   for ((i = 0; i < ${#toks[@]}; i++)); do
     case "${toks[i]}" in
-      --effort) effort=${toks[i + 1]:-}; i=$((i + 1)) ;;
-      --model) model=${toks[i + 1]:-}; i=$((i + 1)) ;;
+      --effort) effort=${toks[i + 1]:-?}; i=$((i + 1)) ;;
+      --model) model=${toks[i + 1]:-?}; i=$((i + 1)) ;;
       *) words+=("${toks[i]}") ;;
     esac
   done
@@ -77,7 +81,7 @@ start() { # <repo id> <slug> <comment id> <issue> <comment url> <body>
   fi
 
   name=$(worktree_name "$repo" "$issue" "$title")
-  prompt="Work on GitHub issue https://github.com/$slug/issues/$issue ($title), as I asked in this comment: $url"
+  prompt="Work on GitHub issue https://github.com/$slug/issues/$issue, as I asked in this comment: $url"
   if [ -n "${words[*]}${rest//[[:space:]]/}" ]; then
     prompt+=$'\n\n'"My instructions, from that comment:"$'\n'"${words[*]}${rest}"
   else
@@ -99,20 +103,23 @@ start() { # <repo id> <slug> <comment id> <issue> <comment url> <body>
 }
 
 # Comments on pull requests come through the same endpoint; only issues count.
+# since filters on updated_at, so created_at is checked too: an edit, yours or
+# a collaborator's, never turns an old comment into an /agent comment.
 # The time only moves forward when every repo was read, so none is missed.
+# The loops read from fd 3 and 4, so no command inside them eats their input.
 ok=true
-while IFS=$'\t' read -r repo slug; do
+while IFS=$'\t' read -r -u 3 repo slug; do
   [ -n "$repo" ] || continue
   comments=$(gh api --paginate "repos/$slug/issues/comments?since=$since&per_page=100" |
-    jq -c --arg me "$me" '.[]
-      | select(.user.login == $me and (.html_url | contains("/issues/"))
+    jq -c --arg me "$me" --arg since "$since" '.[]
+      | select(.user.login == $me and .created_at >= $since and (.html_url | contains("/issues/"))
           and ((.body // "") | test("^/agent(\\s|$)")))
       | {id, url: .html_url, body, issue: (.issue_url | split("/") | last)}') || { ok=false; continue; }
-  while read -r c; do
+  while read -r -u 4 c; do
     [ -n "$c" ] || continue
     id=$(jq -r .id <<<"$c")
     grep -qxF "$id" "$seen" && continue
     start "$repo" "$slug" "$id" "$(jq -r .issue <<<"$c")" "$(jq -r .url <<<"$c")" "$(jq -r .body <<<"$c")" || ok=false
-  done <<<"$comments"
-done <<<"$repos"
+  done 4<<<"$comments"
+done 3<<<"$repos"
 ! $ok || echo "$now" >"$state/since"
