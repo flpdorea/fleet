@@ -1,5 +1,5 @@
 # fleet-pr-ready - notifies the phone when one of this context's open pull
-# requests is ready to merge: checks green, no changes requested or review
+# requests is ready to merge: checks green (or none), no changes requested or review
 # missing, no unresolved thread and no conflict. Drafts count, since agents
 # open drafts and you mark them ready when you merge. Each PR notifies once
 # per head commit. Run as the context user by the fleet-pr-ready-<ctx> timer.
@@ -28,19 +28,25 @@ ready=$(gh api graphql -f query='
     }
   }' --jq '
   .data.search.nodes[]
-  | select(.mergeable == "MERGEABLE"
-      and (.reviewDecision // "APPROVED") == "APPROVED"
-      and .commits.nodes[0].commit.statusCheckRollup.state == "SUCCESS"
-      and all(.reviewThreads.nodes[]; .isResolved))
-  | [.url, .headRefOid, .title] | @tsv')
+  | (.commits.nodes[0].commit.statusCheckRollup.state // "SUCCESS") as $checks
+  | (if .mergeable == "CONFLICTING" or ($checks | IN("FAILURE", "ERROR"))
+        or (.reviewDecision | IN("CHANGES_REQUESTED", "REVIEW_REQUIRED"))
+        or any(.reviewThreads.nodes[]; .isResolved | not) then "no"
+     elif .mergeable == "UNKNOWN" or ($checks | IN("PENDING", "EXPECTED")) then "pending"
+     else "ready" end) as $status
+  | [.url, .headRefOid, $status, .title] | @tsv') || exit 0
 
 # Forget PRs that are no longer ready, so a PR that turns red and then
-# green again on the same commit notifies again.
+# green again on the same commit notifies again. GitHub recomputes
+# mergeability after the base moves (UNKNOWN for a while) and reruns checks
+# (PENDING); those keep what was recorded, so they do not notify twice.
 keep=$(mktemp)
-while IFS=$'\t' read -r url sha title; do
+while IFS=$'\t' read -r url sha status title; do
   [ -n "$url" ] || continue
-  if $first || grep -qxF "$url $sha" "$seen" ||
-    fleet notify "Ready to merge: $title" "${url#https://github.com/}" --url "$url"; then
+  if grep -qxsF "$url $sha" "$seen"; then
+    [ "$status" = no ] || printf '%s %s\n' "$url" "$sha" >>"$keep"
+  elif [ "$status" = ready ] && { $first ||
+    fleet notify "Ready to merge: $title" "${url#https://github.com/}" --url "$url"; }; then
     printf '%s %s\n' "$url" "$sha" >>"$keep"
   fi
 done <<<"$ready"
