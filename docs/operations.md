@@ -22,9 +22,10 @@ fleet restart setup           # rerun the setup
 fleet stop agent-comments     # pause the polling until the next boot or rebuild
 fleet start agent-comments    # resume it
 fleet run pr-ready            # poll once, now
+fleet logs agent-comments -f  # its log, following what it writes next
 ```
 
-A polkit rule in `nix/module.nix` allows each context user to start, stop and restart its own context's units and nothing else.
+A polkit rule in `nix/module.nix` allows each context user to start, stop and restart its own context's units and nothing else. Each service logs to `/var/log/fleet/<service>-<ctx>.log`, readable by its context user, which `fleet logs` shows. All but Orca's are rotated weekly; Orca's keeps the pairing link that `fleet pair` reads.
 
 The `orca-cli` and `orchestration` skills are installed for each harness, so an agent can still drive Orca or other agents when you ask it to. `orca skills list` shows the Orca skills available.
 
@@ -37,7 +38,7 @@ Comment on an issue, in a repo added to the context's Orca, with a comment that 
 Keep the old flag working for one more release.
 ```
 
-Within a minute, `fleet-agent-comments-<ctx>` starts the context's agent in a new worktree named after the issue, reacts to the comment with eyes and replies with the worktree and branch; the worktree shows up in the Orca app. The first line may set `--effort` (`low` to `max`) and `--model`; the rest is instructions. With none, the agent plans the work in Lavish and waits for your approval. Only comments written by the context's GitHub account (the one `fleet login` signed in) count, and each comment starts one agent: editing it, or an older comment, starts nothing. A comment posted while Orca or GitHub was unreachable for more than an hour is dropped. If the agent cannot start, the reply says so; the details are in `journalctl -u fleet-agent-comments-<ctx>`.
+Within a minute, `fleet-agent-comments-<ctx>` starts the context's agent in a new worktree named after the issue, reacts to the comment with eyes and replies with the worktree and branch; the worktree shows up in the Orca app. The first line may set `--effort` (`low` to `max`) and `--model`; the rest is instructions. With none, the agent plans the work in Lavish and waits for your approval. Only comments written by the context's GitHub account (the one `fleet login` signed in) count, and each comment starts one agent: editing it, or an older comment, starts nothing. A comment posted while Orca or GitHub was unreachable for more than an hour is dropped. If the agent cannot start, the reply says so; the details are in `fleet logs agent-comments`.
 
 ## Updating
 
@@ -116,12 +117,12 @@ You can also pick an older generation from the boot menu.
 
 | Symptom | Check | Fix |
 |---|---|---|
-| `fleet: this user is not a fleet context` | `systemctl status fleet-setup-<ctx>` | The setup service has not run or failed. `journalctl -u fleet-setup-<ctx>` as root shows why. |
-| `fleet status` says Orca `no response` | `systemctl status orca-serve-<ctx>`, `tail -n 50 /var/log/fleet/orca-<ctx>.log` | Usually Tailscale is down: `tailscale status`, then `tailscale up` as root. |
+| `fleet: this user is not a fleet context` | `systemctl status fleet-setup-<ctx>` | The setup service has not run or failed. `fleet logs setup --context <ctx>` as root shows what the setup printed; `journalctl -u fleet-setup-<ctx>` shows why systemd did not run it. |
+| `fleet status` says Orca `no response` | `fleet services`, `fleet logs orca` | Usually Tailscale is down: `tailscale status`, then `tailscale up` as root. |
 | `fleet pair` prints no link | the log above | The server is still starting or failing. Restart it: `fleet restart orca`. |
 | Orca app shows the server as disconnected | Tailscale on your device | Both devices must be on the same tailnet. Update Orca on both sides if it reports an incompatible protocol. |
 | Worker dispatch fails | `fleet status` | Orca must report `ready`. Wait for the server or restart it. |
-| `fleet status` says setup `pending` | `journalctl -u fleet-setup-<ctx>` | Installing the Orca skills needs the network (`npx skills`). `fleet restart setup` retries. |
+| `fleet status` says setup `pending` | `fleet logs setup` | Installing the Orca skills needs the network (`npx skills`). `fleet restart setup` retries. |
 | A worker fails on a downloaded binary | | `nix-ld` is enabled for this; if a tool needs an extra library, add it to `programs.nix-ld.libraries` in `nix/module.nix`. |
 | `docker`: cannot connect to the daemon | `systemctl --user status docker` as the user | The rootless daemon runs in the user's systemd manager. `systemctl --user restart docker` restarts it. An `orca-serve-<ctx>` started before Docker was added has no `DOCKER_HOST`: restart it (`fleet restart orca`). |
 

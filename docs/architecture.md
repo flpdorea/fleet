@@ -27,7 +27,7 @@ The `work` context is the same picture with the `work` user, its own Claude acco
 3. The agent works, pushes and opens pull requests with that context's GitHub login; Orca shows their status.
 4. The app shows every agent's terminal live, and the agents keep running when it is closed.
 
-SSH is only for setup and maintenance: `fleet login`, `fleet pair`, `fleet status`, the service commands (`fleet services`, `start`, `stop`, `restart`, `run`) and, as root, `fleet rebuild`.
+SSH is only for setup and maintenance: `fleet login`, `fleet pair`, `fleet status`, the service commands (`fleet services`, `start`, `stop`, `restart`, `run`, `logs`) and, as root, `fleet rebuild`.
 
 ## Why one Linux user per context
 
@@ -57,7 +57,7 @@ Per context (`<ctx>` is `personal` or `work`):
 | `fleet-agent-comments-<ctx>` | oneshot, as the user, every minute (timer) | Starts an agent in a new worktree for each new `/agent` comment of the user's GitHub account on an issue of a repo in the context's Orca, then reacts to the comment and replies with the worktree. See [Daily use](operations.md#starting-an-agent-from-an-issue). The first run records the time without starting anything. |
 | `docker` (user unit) | long-running, in the user's systemd manager | The context's rootless Docker daemon, on `/run/user/<uid>/docker.sock`. Lingering starts it at boot; `orca-serve-<ctx>` points agents at it with `DOCKER_HOST`. |
 
-Machine-wide: `sshd`, `tailscaled`, the firewall, `ntfy-sh` (push notifications on port 2586, one topic per context), `nix-ld`, weekly Nix garbage collection, and (first boot only) `fleet-bootstrap`.
+Machine-wide: `sshd`, `tailscaled`, the firewall, `ntfy-sh` (push notifications on port 2586, one topic per context), `nix-ld`, weekly Nix garbage collection, weekly rotation of `/var/log/fleet`, a polkit rule that lets each context user start, stop and restart its own context's units, and (first boot only) `fleet-bootstrap`.
 
 ## Where things live
 
@@ -70,7 +70,7 @@ Machine-wide: `sshd`, `tailscaled`, the firewall, `ntfy-sh` (push notifications 
 | `/etc/fleet/contexts.json` | Context list read by the `fleet` command | The module |
 | `/etc/fleet/ntfy-url`, `/etc/fleet/ntfy-base-url` | Local and tailnet addresses of the ntfy server, read by `fleet notify` and `fleet pair` | The module |
 | `/home/<ctx>/fleet/` | `.context` and `.ready` markers read by `fleet`, and `.ntfy-topic`, the context's secret ntfy topic (mode 600) | `fleet-setup-<ctx>` |
-| `/var/log/fleet/orca-<ctx>.log` | Orca server log, including the pairing link (mode 600) | `orca-serve-<ctx>` |
+| `/var/log/fleet/<service>-<ctx>.log` | Each service's log (`orca`, `setup`, `pr-ready`, `agent-comments`), the Orca one with the pairing link; mode 600, owned by the user; all but Orca's rotated weekly | The services; read with `fleet logs` |
 
 ## Version pinning
 

@@ -49,6 +49,7 @@ The full walkthrough, including what to watch during the first boot, is in [docs
 | `fleet services` | context user or root | state of the context's services and when the polled ones run next |
 | `fleet start\|stop\|restart <service>` | context user or root | manage `orca`, `setup`, `pr-ready` or `agent-comments`; root acts on every context unless given `--context <ctx>` |
 | `fleet run <service>` | context user or root | run `pr-ready` or `agent-comments` once, now |
+| `fleet logs <service>` | context user or root | the end of the service's log; `-f` follows it |
 | `fleet rebuild` | root | update to the latest release (or the branch it follows) and apply it |
 
 ## Repository layout
