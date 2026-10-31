@@ -9,7 +9,22 @@ On the VPS, `fleet` lists the commands:
 ```bash
 ssh fleet-personal      # or fleet-work (see installation: SSH key and config)
 fleet status            # whether setup ran and whether Orca is ready
+fleet services          # the context's services, and when the polled ones run next
 ```
+
+### Managing the services
+
+Each context runs four services, which `fleet` names `orca` (the Orca server), `setup` (`fleet-setup-<ctx>`), `pr-ready` and `agent-comments` (the last two poll GitHub on a timer). A context user manages its own context's services, without sudo; root manages every context's, or one with `--context <ctx>`:
+
+```bash
+fleet restart orca            # asks first: it kills the agents running in Orca
+fleet restart setup           # rerun the setup
+fleet stop agent-comments     # pause the polling until the next boot
+fleet start agent-comments    # resume it
+fleet run pr-ready            # poll once, now
+```
+
+A polkit rule in `nix/module.nix` allows each context user to start, stop and restart its own context's units and nothing else.
 
 The `orca-cli` and `orchestration` skills are installed for each harness, so an agent can still drive Orca or other agents when you ask it to. `orca skills list` shows the Orca skills available.
 
@@ -74,11 +89,10 @@ gh attestation verify install.sh -R flpdorea/fleet
 
 ### Restarting Orca after an update
 
-Rebuilds **never restart** the Orca servers, because a restart kills the workers in flight. After a rebuild that changed Orca, restart each server at a quiet moment:
+Rebuilds **never restart** the Orca servers, because a restart kills the workers in flight. After a rebuild that changed Orca, restart the servers at a quiet moment, every context's as root or each one as its user:
 
 ```bash
-systemctl restart orca-serve-personal
-systemctl restart orca-serve-work
+fleet restart orca
 ```
 
 Paired clients should reconnect by themselves. If one stays disconnected, pair it again with the link from `fleet pair`.
@@ -104,12 +118,12 @@ You can also pick an older generation from the boot menu.
 |---|---|---|
 | `fleet: this user is not a fleet context` | `systemctl status fleet-setup-<ctx>` | The setup service has not run or failed. `journalctl -u fleet-setup-<ctx>` as root shows why. |
 | `fleet status` says Orca `no response` | `systemctl status orca-serve-<ctx>`, `tail -n 50 /var/log/fleet/orca-<ctx>.log` | Usually Tailscale is down: `tailscale status`, then `tailscale up` as root. |
-| `fleet pair` prints no link | the log above | The server is still starting or failing. Restart it: `systemctl restart orca-serve-<ctx>`. |
+| `fleet pair` prints no link | the log above | The server is still starting or failing. Restart it: `fleet restart orca`. |
 | Orca app shows the server as disconnected | Tailscale on your device | Both devices must be on the same tailnet. Update Orca on both sides if it reports an incompatible protocol. |
 | Worker dispatch fails | `fleet status` | Orca must report `ready`. Wait for the server or restart it. |
-| `fleet status` says setup `pending` | `journalctl -u fleet-setup-<ctx>` | Installing the Orca skills needs the network (`npx skills`). `systemctl restart fleet-setup-<ctx>` retries. |
+| `fleet status` says setup `pending` | `journalctl -u fleet-setup-<ctx>` | Installing the Orca skills needs the network (`npx skills`). `fleet restart setup` retries. |
 | A worker fails on a downloaded binary | | `nix-ld` is enabled for this; if a tool needs an extra library, add it to `programs.nix-ld.libraries` in `nix/module.nix`. |
-| `docker`: cannot connect to the daemon | `systemctl --user status docker` as the user | The rootless daemon runs in the user's systemd manager. `systemctl --user restart docker` restarts it. An `orca-serve-<ctx>` started before Docker was added has no `DOCKER_HOST`: restart it. |
+| `docker`: cannot connect to the daemon | `systemctl --user status docker` as the user | The rootless daemon runs in the user's systemd manager. `systemctl --user restart docker` restarts it. An `orca-serve-<ctx>` started before Docker was added has no `DOCKER_HOST`: restart it (`fleet restart orca`). |
 
 ### The first boot did not finish
 

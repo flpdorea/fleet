@@ -10,11 +10,12 @@ let
 
   primaryPkg = { pi = agents.pi; claude = agents.claude-code; };
 
-  # Day-to-day command: login | pair | status for context users, rebuild for
-  # root, and a help message when run without arguments.
+  # Day-to-day command: login | pair | status for context users, the service
+  # commands for both, rebuild for root, and a help message when run without
+  # arguments.
   fleetCli = pkgs.writeShellApplication {
     name = "fleet";
-    runtimeInputs = (with pkgs; [ coreutils gnugrep gnused jq git gh nix curl ])
+    runtimeInputs = (with pkgs; [ coreutils gnugrep gnused jq git gh nix curl systemd ])
       ++ [ config.system.build.nixos-rebuild ];
     text = builtins.readFile ./fleet.sh;
   };
@@ -55,6 +56,18 @@ let
     cp -r ${anthropic-skills}/skills/skill-creator $out/
     cp -r ${lavish-axi}/skills/lavish $out/
   '';
+
+  # The units `fleet start|stop|restart|run` acts on, which a context user may
+  # manage for its own context only (the polkit rule below). Each runs as
+  # that user, so this grants nothing it could not do to its own processes.
+  ctxUnits = ctx: [
+    "orca-serve-${ctx}.service"
+    "fleet-setup-${ctx}.service"
+    "fleet-pr-ready-${ctx}.service"
+    "fleet-pr-ready-${ctx}.timer"
+    "fleet-agent-comments-${ctx}.service"
+    "fleet-agent-comments-${ctx}.timer"
+  ];
 
   # The ntfy server that pushes notifications to the phone.
   ntfyPort = 2586;
@@ -177,6 +190,20 @@ in
       environment.etc."fleet/contexts.json".text = builtins.toJSON contexts;
       environment.etc."fleet/ntfy-url".text = "http://127.0.0.1:${toString ntfyPort}";
       environment.etc."fleet/ntfy-base-url".text = cfg.ntfyBaseUrl;
+
+      # Lets each context user start, stop and restart its own context's
+      # units (ctxUnits) without sudo, through `fleet`. Nothing else.
+      security.polkit.enable = true;
+      security.polkit.extraConfig = lib.concatMapStrings (ctx: ''
+        polkit.addRule(function (action, subject) {
+          if (action.id == "org.freedesktop.systemd1.manage-units" &&
+              subject.user == ${builtins.toJSON ctx} &&
+              ${builtins.toJSON (ctxUnits ctx)}.indexOf(action.lookup("unit")) >= 0 &&
+              ["start", "stop", "restart"].indexOf(action.lookup("verb")) >= 0) {
+            return polkit.Result.YES;
+          }
+        });
+      '') (builtins.attrNames contexts);
 
       systemd.tmpfiles.rules = [
         "d /var/log/fleet 0711 root root -"

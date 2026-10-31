@@ -46,6 +46,9 @@ The full walkthrough, including what to watch during the first boot, is in [docs
 | `fleet status` | context user | setup and Orca server state |
 | `fleet pair` | context user | link that connects the Orca app to this server |
 | `fleet login` | context user | git identity, GitHub and the agent's login |
+| `fleet services` | context user or root | state of the context's services and when the polled ones run next |
+| `fleet start\|stop\|restart <service>` | context user or root | manage `orca`, `setup`, `pr-ready` or `agent-comments`; root acts on every context unless given `--context <ctx>` |
+| `fleet run <service>` | context user or root | run `pr-ready` or `agent-comments` once, now |
 | `fleet rebuild` | root | update to the latest release (or the branch it follows) and apply it |
 
 ## Repository layout
