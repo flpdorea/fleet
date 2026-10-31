@@ -11,5 +11,13 @@
   },
   "enabledPlugins": {
     "caveman@caveman": true
+  },
+  "hooks": {
+    "Notification": [
+      { "hooks": [{ "type": "command", "command": "fleet-claude-hook notification" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "fleet-claude-hook stop" }] }
+    ]
   }
 }
