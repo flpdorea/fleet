@@ -131,7 +131,8 @@ apply_ruleset() {
 # main only changes through a squash-merged pull request whose required
 # checks pass on a branch up to date with main (so the merge cannot
 # conflict), with every review thread resolved, or through a deploy key.
-# Its history stays linear and signed: GitHub signs the squash commits.
+# Its history stays linear. Signed commits are not required: GitHub signs the
+# squash commits anyway, and the agents that open most pull requests do not sign.
 apply_ruleset main <<JSON
 {
   "name": "main",
@@ -145,7 +146,6 @@ apply_ruleset main <<JSON
     {"type": "deletion"},
     {"type": "non_fast_forward"},
     {"type": "required_linear_history"},
-    {"type": "required_signatures"},
     {"type": "pull_request", "parameters": {
       "required_approving_review_count": 0,
       "dismiss_stale_reviews_on_push": false,
