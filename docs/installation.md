@@ -159,10 +159,10 @@ It prints that context's pairing link. On your Mac or phone, with Tailscale conn
 
 ## Notifications on the phone
 
-The VPS runs an [ntfy](https://ntfy.sh) server on port 2586, reachable only through the tailnet, with one topic per context (`personal`, `work`). Hooks and scripts on the VPS publish to it with `fleet notify` when something needs you.
+The VPS runs an [ntfy](https://ntfy.sh) server on port 2586, reachable only through the tailnet, with one topic per context. Each topic is named with a secret (`personal-<random>`), since anyone who knows a topic can read and publish to it. Hooks and scripts on the VPS publish to it with `fleet notify` when something needs you.
 
 1. Install the ntfy app on the phone ([Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy), [iOS](https://apps.apple.com/app/ntfy/id1625396347)) and keep Tailscale connected.
-2. In the app, add a subscription: topic `personal`, **Use another server**, `http://fleet:2586`. Repeat for `work`. On Android, turn on **Instant delivery** so messages arrive without Google's push service.
+2. On the VPS, as each context user, run `fleet pair`: it also prints the context's topic and server. In the app, add a subscription with that topic, **Use another server** and that server (`http://fleet:2586`). Repeat for `work`. On Android, turn on **Instant delivery** so messages arrive without Google's push service.
 3. Check it from the VPS, as the context user:
 
    ```bash

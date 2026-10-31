@@ -9,7 +9,7 @@ Usage: fleet <command>
 
 As a context user (personal, work):
   login     set up the git identity, GitHub and the agent's login
-  pair      print the link that connects the Orca app to this server
+  pair      print the links that connect the Orca app and the ntfy app to this server
   status    show whether setup ran and whether the Orca server is ready
   notify    push a notification to the phone: <title> <message>
             [--url <link>] [--priority min|low|default|high|max]
@@ -123,6 +123,10 @@ pair() {
   else
     echo "$CTX: the Orca server has not printed a link yet. See: tail -n 50 $LOG"
   fi
+  if [ -s "$FLEET/.ntfy-topic" ]; then
+    printf 'Notifications: in the ntfy app, subscribe to\n  topic %s on server %s\n  Treat the topic like a password.\n' \
+      "$(cat "$FLEET/.ntfy-topic")" "$(cat /etc/fleet/ntfy-base-url)"
+  fi
 }
 
 status() {
@@ -137,7 +141,7 @@ status() {
     || echo "no response (systemctl status orca-serve-$CTX)"
 }
 
-# Pushes a notification to this context's ntfy topic, which the phone
+# Pushes a notification to this context's secret ntfy topic, which the phone
 # subscribes to. Hooks and scripts call it, never the agents themselves.
 notify() {
   local title="" message="" url="" priority=3 body
@@ -159,7 +163,9 @@ notify() {
     [1-5]) ;;
     *) echo "fleet notify: priority is 1-5 or min, low, default, high, max" >&2; exit 1 ;;
   esac
-  body=$(jq -n --arg topic "$CTX" --arg title "$title" --arg message "$message" \
+  local topic
+  topic=$(cat "$FLEET/.ntfy-topic") || { echo "fleet notify: no ntfy topic yet (systemctl status fleet-setup-$CTX)" >&2; exit 1; }
+  body=$(jq -n --arg topic "$topic" --arg title "$title" --arg message "$message" \
     --arg click "$url" --argjson priority "$priority" \
     '{topic: $topic, title: $title, message: $message, priority: $priority}
      + (if $click == "" then {} else {click: $click} end)')

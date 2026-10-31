@@ -7,6 +7,10 @@ set -euo pipefail
 FLEET="$HOME/fleet"
 mkdir -p "$HOME/.local/bin" "$HOME/.npm-global" "$FLEET"
 printf '%s\n' "$FLEET_CONTEXT" >"$FLEET/.context"
+# The secret ntfy topic for push notifications (fleet notify), made once.
+if [ ! -s "$FLEET/.ntfy-topic" ]; then
+  (umask 077 && printf '%s-%s\n' "$FLEET_CONTEXT" "$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')" >"$FLEET/.ntfy-topic")
+fi
 rm -f "$FLEET/.ready"
 
 # Remove what firstmate left behind on machines set up before Orca's own
