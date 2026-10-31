@@ -54,32 +54,33 @@ The full walkthrough, including what to watch during the first boot, is in [docs
 
 ## Repository layout
 
-```
-fleet/
-├── flake.nix                 inputs: nixpkgs 26.05, llm-agents.nix
-├── flake.lock                every pinned version (maintained by CI)
-├── cliff.toml                release notes and versions, from Conventional Commits
-├── install.sh                Ubuntu/Debian → NixOS, via nixos-infect
-├── nix/
-│   ├── module.nix            the machine: users, Orca, Tailscale, firewall, services
-│   ├── fleet.sh              the fleet command (packaged by Nix)
-│   └── setup-user.sh         installs Orca's skills, Claude settings, the caveman plugin and mise runtimes, removes firstmate leftovers
-├── homes/
-│   ├── contexts.nix          personal = claude :6768 · work = claude :6769
-│   ├── claude-settings.json  merged into each user's ~/.claude/settings.json
-│   ├── CLAUDE.md             installed as each user's ~/.claude/CLAUDE.md
-│   ├── mise.toml             default language runtimes, installed as /etc/mise/config.toml
-│   └── skills/               installed in ~/.claude/skills, with skill-creator and lavish
-├── tailscale/policy.hujson   tailnet access policy, applied by CI
-├── scripts/
-│   ├── github-settings.sh      one-time: squash-only merges, the main ruleset, environments
-│   ├── tailscale-bootstrap.sh  one-time: policy, OAuth clients, secrets
-│   └── tailscale-authkey.sh    mints the single-use install key
-├── .github/
-│   ├── workflows/            nix: lock, lint, evaluate · tailscale: test, apply the policy · pr, issues: check titles and templates · release: tag and publish
-│   └── ISSUE_TEMPLATE/       bug and feature forms, next to pull_request_template.md
-├── SECURITY.md · CONTRIBUTING.md · CODE_OF_CONDUCT.md · LICENSE
-└── docs/
+```mermaid
+flowchart LR
+    root["fleet/"]
+    root --> flake["flake.nix<br/>inputs: nixpkgs 26.05, llm-agents.nix"]
+    root --> lock["flake.lock<br/>every pinned version (maintained by CI)"]
+    root --> cliff["cliff.toml<br/>release notes and versions, from Conventional Commits"]
+    root --> install["install.sh<br/>Ubuntu/Debian to NixOS, via nixos-infect"]
+    root --> nix["nix/"]
+    nix --> module["module.nix<br/>the machine: users, Orca, Tailscale, firewall, services"]
+    nix --> fleetsh["fleet.sh<br/>the fleet command (packaged by Nix)"]
+    nix --> setup["setup-user.sh<br/>installs Orca's skills, Claude settings, the caveman plugin<br/>and mise runtimes, removes firstmate leftovers"]
+    root --> homes["homes/"]
+    homes --> contexts["contexts.nix<br/>personal = claude :6768 · work = claude :6769"]
+    homes --> settings["claude-settings.json<br/>merged into each user's ~/.claude/settings.json"]
+    homes --> claudemd["CLAUDE.md<br/>installed as each user's ~/.claude/CLAUDE.md"]
+    homes --> mise["mise.toml<br/>default language runtimes, installed as /etc/mise/config.toml"]
+    homes --> skills["skills/<br/>installed in ~/.claude/skills, with skill-creator and lavish"]
+    root --> policy["tailscale/policy.hujson<br/>tailnet access policy, applied by CI"]
+    root --> scripts["scripts/"]
+    scripts --> ghsettings["github-settings.sh<br/>one-time: squash-only merges, the main ruleset, environments"]
+    scripts --> tsboot["tailscale-bootstrap.sh<br/>one-time: policy, OAuth clients, secrets"]
+    scripts --> tskey["tailscale-authkey.sh<br/>mints the single-use install key"]
+    root --> github[".github/"]
+    github --> workflows["workflows/<br/>nix: lock, lint, evaluate · tailscale: test, apply the policy<br/>pr, issues: check titles and templates · release: tag and publish"]
+    github --> templates["ISSUE_TEMPLATE/<br/>bug and feature forms, next to pull_request_template.md"]
+    root --> meta["SECURITY.md · CONTRIBUTING.md · CODE_OF_CONDUCT.md · LICENSE"]
+    root --> docs["docs/"]
 ```
 
 ## Documentation
