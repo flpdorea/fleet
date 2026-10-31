@@ -1,6 +1,7 @@
 # fleet-claude-hook <event> - Claude Code hooks (homes/claude-settings.json)
-# that push notifications to the phone with `fleet notify`, so a
-# notification fires whenever its event happens, whatever the agent does.
+# that push notifications to the phone with `fleet notify` and open Lavish
+# boards in Orca's browser, so they happen whenever their event does,
+# whatever the agent does.
 # Packaged by the Nix module with writeShellApplication.
 #
 # A hook must never block or fail the agent: it hands the event JSON to a
@@ -85,9 +86,22 @@ stop() {
   mkdir -p "$state" && touch "$(marker)"
 }
 
+# Opens a Lavish board in a tab of Orca's built-in browser, in the
+# session's worktree, unless a tab already shows it: lavish-axi prints
+# "opened" every time a board is re-run, not only the first.
+browser_tab() {
+  local url=$1 top
+  local wt=()
+  top=$(git -C "$(field .cwd)" rev-parse --show-toplevel) && wt=(--worktree "path:$top")
+  orca tab list --worktree all --json </dev/null \
+    | jq -e --arg url "$url" 'any(.result.tabs[]; .url == $url)' >/dev/null && return 0
+  orca tab create --url "$url" "${wt[@]}" --json </dev/null
+}
+
 # A Bash command opened a Lavish board (a plan, an issue draft, an
-# escalation) or a pull request: notify with its link. lavish-axi prints
-# the session's Tailscale URL; gh prints the URL of each PR it creates.
+# escalation) or a pull request: open the board in Orca's browser and
+# notify with its link. lavish-axi prints the session's Tailscale URL; gh
+# prints the URL of each PR it creates.
 bash_tool() {
   local cmd out url file title pr
   local run='(^|[;&|(]|&&)[[:space:]]*'
@@ -98,6 +112,7 @@ bash_tool() {
     url=$(sed -n 's/^ *url: "\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' <<<"$out" | head -1)
     file=$(sed -n 's/^ *file: "\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' <<<"$out" | head -1)
     [ -n "$url" ] || return 0
+    browser_tab "$url"
     title=$(sed -n 's:.*<title>\([^<]*\)</title>.*:\1:p' "$file" 2>/dev/null | head -1)
     fleet notify "Review: ${title:-$(basename "$file" .html)}" "$(where)" --url "$url" --priority high
   elif [[ $cmd =~ ${run}gh[[:space:]]+(pr[[:space:]]+create|stack[[:space:]]+submit) ]]; then

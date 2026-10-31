@@ -20,10 +20,11 @@ let
     text = builtins.readFile ./fleet.sh;
   };
 
-  # Claude Code hooks that notify the phone (homes/claude-settings.json).
+  # Claude Code hooks that notify the phone and open Lavish boards in
+  # Orca's browser (homes/claude-settings.json).
   claudeHook = pkgs.writeShellApplication {
     name = "fleet-claude-hook";
-    runtimeInputs = (with pkgs; [ coreutils findutils gnugrep gnused util-linux jq git gh ]) ++ [ fleetCli ];
+    runtimeInputs = (with pkgs; [ coreutils findutils gnugrep gnused util-linux jq git gh ]) ++ [ fleetCli agents.orca ];
     text = builtins.readFile ./claude-hook.sh;
   };
 
