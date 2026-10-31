@@ -73,8 +73,25 @@ rebuild() {
     echo "fleet: $ref -> $target"
     sed -i "s|^\( *inputs\.fleet\.url = \"github:$repo/\).*\";$|\1$target\";|" "$flake"
   fi
-  nix flake update fleet --flake /etc/nixos
-  exec nixos-rebuild switch --flake /etc/nixos#fleet "$@"
+  local status=0 rev
+  { nix flake update fleet --flake /etc/nixos && nixos-rebuild switch --flake /etc/nixos#fleet "$@"; } || status=$?
+  rev=$(jq -r '.nodes.fleet.locked.rev // "?" | .[0:7]' /etc/nixos/flake.lock 2>/dev/null || echo "?")
+  if [ "$status" -eq 0 ]; then
+    announce "Deploy succeeded" "fleet $target ($rev) is live." 3
+  else
+    announce "Deploy failed" "fleet rebuild to $target ($rev) exited with $status; check it on the VPS." 4
+  fi
+  return "$status"
+}
+
+# Tells every context's phone how a rebuild went. Best effort: a notifier
+# outage, or a context whose setup has not run yet, never fails the rebuild.
+announce() {
+  local ctx topic
+  for ctx in $(jq -r 'keys[]' /etc/fleet/contexts.json 2>/dev/null); do
+    topic=$(cat "/home/$ctx/fleet/.ntfy-topic" 2>/dev/null) || continue
+    publish "$topic" "$1" "$2" "" "$3" || true
+  done
 }
 
 login() {
@@ -144,7 +161,7 @@ status() {
 # Pushes a notification to this context's secret ntfy topic, which the phone
 # subscribes to. Hooks and scripts call it, never the agents themselves.
 notify() {
-  local title="" message="" url="" priority=3 body
+  local title="" message="" url="" priority=3
   local use="usage: fleet notify <title> <message> [--url <link>] [--priority <p>]"
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -165,11 +182,17 @@ notify() {
   esac
   local topic
   topic=$(cat "$FLEET/.ntfy-topic") || { echo "fleet notify: no ntfy topic yet (systemctl status fleet-setup-$CTX)" >&2; exit 1; }
+  publish "$topic" "$title" "$message" "$url" "$priority"
+}
+
+# publish <topic> <title> <message> <click url or ""> <priority 1-5>
+publish() {
+  local topic=$1 title=$2 message=$3 url=$4 priority=$5 body
   body=$(jq -n --arg topic "$topic" --arg title "$title" --arg message "$message" \
     --arg click "$url" --argjson priority "$priority" \
     '{topic: $topic, title: $title, message: $message, priority: $priority}
      + (if $click == "" then {} else {click: $click} end)')
-  curl -fsS --max-time 10 -o /dev/null -H 'Content-Type: application/json' \
+  curl -fsS --max-time 10 --retry 2 --retry-connrefused -o /dev/null -H 'Content-Type: application/json' \
     -d "$body" "$(cat /etc/fleet/ntfy-url)"
 }
 
