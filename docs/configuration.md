@@ -114,7 +114,7 @@ To change a default, edit `[tools]` in `homes/mise.toml`; the `mise` skill tells
 
 ## Turning off a polled service
 
-`pr-ready` and `agent-comments` poll GitHub on a timer. `fleet stop <service>` pauses one until the next boot or `fleet rebuild`, which starts it again. To turn one off for good on a machine, list it in `/etc/nixos/fleet.nix`, then run `fleet rebuild`:
+`pr-ready`, `agent-comments` and `pr-reviews` poll GitHub on a timer (`pr-reviews` only in Claude contexts). `fleet stop <service>` pauses one until the next boot or `fleet rebuild`, which starts it again. To turn one off for good on a machine, list it in `/etc/nixos/fleet.nix`, then run `fleet rebuild`:
 
 ```nix
 fleet.disabledServices = {
