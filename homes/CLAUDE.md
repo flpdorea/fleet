@@ -15,7 +15,7 @@
 
 - When a plan, comparison, decision, report or explanation would take more than a few dozen lines of markdown, or is clearer visually, make it an HTML artifact and open it with the `lavish` skill so I review and annotate it in the browser. Short answers stay in chat.
 - When I ask for planning, always build the plan in Lavish, however short it is.
-- Run `lavish-axi poll` with the Bash tool's `run_in_background`, so the session stays free and wakes up when my feedback arrives; re-run it if it times out. When a board opens, open its Tailscale URL in a new tab of Orca's built-in browser with `orca tab create --url <url>`, then give me that URL and the loopback one.
+- Run `lavish-axi poll` with the Bash tool's `run_in_background`, so the session stays free and wakes up when my feedback arrives; re-run it if it times out. A hook opens each board's Tailscale URL in a tab of Orca's built-in browser; don't open it yourself. Give me that URL for my phone.
 - In frontend work, when the look or behavior of some UI is still open, prototype it in Lavish with the `ui-prototype` skill before implementing it.
 - Draft GitHub issues in Lavish too: the issue as an artifact first, then file it with `gh issue create` once I approve, as markdown that fills the repository's issue template, with images attached through `gh --attach`.
 
