@@ -14,7 +14,7 @@ let
   # root, and a help message when run without arguments.
   fleetCli = pkgs.writeShellApplication {
     name = "fleet";
-    runtimeInputs = (with pkgs; [ coreutils gnugrep gnused jq git gh nix ])
+    runtimeInputs = (with pkgs; [ coreutils gnugrep gnused jq git gh nix curl ])
       ++ [ config.system.build.nixos-rebuild ];
     text = builtins.readFile ./fleet.sh;
   };

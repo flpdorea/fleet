@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Turns a fresh Ubuntu/Debian VPS into NixOS running fleet.
 #
-# Usage, as root on the VPS:
+# Usage, as root on the VPS, for the latest release:
+#   curl -fsSL https://github.com/flpdorea/fleet/releases/latest/download/install.sh | TS_AUTHKEY=tskey-... bash
+# or for main, which gets every change first:
 #   curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=tskey-... bash
 #   ... | TS_AUTHKEY=tskey-... FLEET_CONTEXTS=personal bash    one context only
 #
@@ -19,6 +21,8 @@ main() {
 set -euo pipefail
 
 FLEET_REPO="${FLEET_REPO:-flpdorea/fleet}"
+# The branch or release tag the machine follows; fleet rebuild keeps to it.
+# Each release's copy of this script defaults to its own tag.
 FLEET_BRANCH="${FLEET_BRANCH:-main}"
 FLEET_CONTEXTS="${FLEET_CONTEXTS:-personal work}"
 FLEET_HOSTNAME="${FLEET_HOSTNAME:-fleet}"

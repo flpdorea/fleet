@@ -193,4 +193,22 @@ apply_ruleset branch-names <<JSON
   "rules": [{"type": "creation"}]
 }
 JSON
+
+# Only the release workflow creates tags, with the deploy key, and a tag never
+# moves or disappears once pushed. A release cannot change after it is
+# published either, so a version always means the same code and install.sh.
+apply_ruleset tags <<'JSON'
+{
+  "name": "tags",
+  "target": "tag",
+  "enforcement": "active",
+  "conditions": {"ref_name": {"include": ["~ALL"], "exclude": []}},
+  "bypass_actors": [
+    {"actor_type": "DeployKey", "bypass_mode": "always"}
+  ],
+  "rules": [{"type": "creation"}, {"type": "update"}, {"type": "deletion"}]
+}
+JSON
+gh api -X PUT "repos/$repo/immutable-releases" --silent
+
 echo "Applied the repository settings and rulesets to $repo."

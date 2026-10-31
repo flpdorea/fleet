@@ -90,7 +90,7 @@ Install right after: until nixos-infect reboots, the provider's root password st
 From your computer, in this repo, so the Tailscale key is minted locally and never written down:
 
 ```bash
-ssh -t fleet "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
+ssh -t fleet "curl -fsSL https://github.com/flpdorea/fleet/releases/latest/download/install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
 ```
 
 | Variant | Command |
@@ -98,6 +98,8 @@ ssh -t fleet "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/i
 | One context only | add `FLEET_CONTEXTS=personal` before `bash` |
 | No confirmation prompt | add `FLEET_YES=1` before `bash` |
 | Different hostname | add `FLEET_HOSTNAME=name` before `bash` |
+| Follow `main` instead of releases | fetch `https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh` instead |
+| A specific release | fetch `https://github.com/flpdorea/fleet/releases/download/v0.1.0/install.sh` |
 | Without a Tailscale key | omit `TS_AUTHKEY`; run `tailscale up --advertise-tags=tag:fleet` as root after the reboot |
 
 ### What the script does

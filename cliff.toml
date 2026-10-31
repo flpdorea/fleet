@@ -1,0 +1,35 @@
+# Release notes and the next version, computed by git-cliff from the
+# Conventional Commit titles of the squash commits on main. Used by
+# .github/workflows/release.yml.
+#
+# Below 1.0.0, a feature or a breaking change bumps the minor version and
+# anything else the patch version; pinned-version updates count as a patch.
+
+[changelog]
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+- {% if commit.breaking %}**Breaking:** {% endif %}{% if commit.scope %}{{ commit.scope }}: {% endif %}{{ commit.message | split(pat="\n") | first | trim }}\
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+tag_pattern = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+# The HTML comments only order the groups; they are stripped from the notes.
+commit_parsers = [
+  { message = "^feat", group = "<!-- 0 -->Features" },
+  { message = "^fix", group = "<!-- 1 -->Fixes" },
+  { message = "^chore\\(nix\\): update pinned versions", group = "<!-- 2 -->Pinned versions" },
+  { message = "^docs", group = "<!-- 3 -->Documentation" },
+  { message = ".*", group = "<!-- 4 -->Other" },
+]
+
+[bump]
+features_always_bump_minor = true
+breaking_always_bump_major = false
+initial_tag = "v0.1.0"

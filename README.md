@@ -25,9 +25,9 @@ The whole machine is declared in this flake: users, firewall, Tailscale, both Or
    ```
 3. From this repo on your computer:
    ```bash
-   ssh -t fleet "curl -fsSL https://raw.githubusercontent.com/flpdorea/fleet/main/install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
+   ssh -t fleet "curl -fsSL https://github.com/flpdorea/fleet/releases/latest/download/install.sh | TS_AUTHKEY=$(scripts/tailscale-authkey.sh) bash"
    ```
-   This **wipes the VPS** (it asks you to type `nixos` first), installs NixOS and reboots. On first boot, the machine applies this flake by itself.
+   This **wipes the VPS** (it asks you to type `nixos` first), installs NixOS and reboots. On first boot, the machine applies this flake by itself. It installs the latest release and keeps to releases; to follow `main` instead, see [Releases](docs/operations.md#releases).
 4. For each context:
    ```bash
    ssh fleet-personal
@@ -46,7 +46,7 @@ The full walkthrough, including what to watch during the first boot, is in [docs
 | `fleet status` | context user | setup and Orca server state |
 | `fleet pair` | context user | link that connects the Orca app to this server |
 | `fleet login` | context user | git identity, GitHub and the agent's login |
-| `fleet rebuild` | root | pull the latest version of this repo and apply it |
+| `fleet rebuild` | root | update to the latest release (or the branch it follows) and apply it |
 
 ## Repository layout
 
@@ -54,6 +54,7 @@ The full walkthrough, including what to watch during the first boot, is in [docs
 fleet/
 ├── flake.nix                 inputs: nixpkgs 26.05, llm-agents.nix
 ├── flake.lock                every pinned version (maintained by CI)
+├── cliff.toml                release notes and versions, from Conventional Commits
 ├── install.sh                Ubuntu/Debian → NixOS, via nixos-infect
 ├── nix/
 │   ├── module.nix            the machine: users, Orca, Tailscale, firewall, services
@@ -71,7 +72,7 @@ fleet/
 │   ├── tailscale-bootstrap.sh  one-time: policy, OAuth clients, secrets
 │   └── tailscale-authkey.sh    mints the single-use install key
 ├── .github/
-│   ├── workflows/            nix: lock, lint, evaluate · tailscale: test, apply the policy · pr, issues: check titles and templates
+│   ├── workflows/            nix: lock, lint, evaluate · tailscale: test, apply the policy · pr, issues: check titles and templates · release: tag and publish
 │   └── ISSUE_TEMPLATE/       bug and feature forms, next to pull_request_template.md
 ├── SECURITY.md · CONTRIBUTING.md · CODE_OF_CONDUCT.md · LICENSE
 └── docs/
