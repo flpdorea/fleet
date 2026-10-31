@@ -15,6 +15,7 @@ first=false
 
 gh auth status >/dev/null 2>&1 || exit 0
 
+# shellcheck disable=SC2016 # $checks and $status are jq variables
 ready=$(gh api graphql -f query='
   query {
     search(query: "is:pr is:open author:@me archived:false", type: ISSUE, first: 50) {

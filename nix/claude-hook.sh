@@ -105,12 +105,13 @@ bash_tool() {
     # Parallel hooks must not both notify the same PR.
     exec 9>>"$state/prs"
     flock 9
-    for pr in $(grep -oE 'https://github\.com/[^/ ]+/[^/ ]+/pull/[0-9]+' <<<"$out" | sort -u); do
+    while read -r pr; do
+      [ -n "$pr" ] || continue
       grep -qxF "$pr" "$state/prs" && continue
       echo "$pr" >>"$state/prs"
-      title=$(timeout 10 gh pr view "$pr" --json title -q .title) || title=$pr
-      fleet notify "PR opened: $title" "${pr#https://github.com/}" --url "$pr"
-    done
+      title=$(timeout 10 gh pr view "$pr" --json title -q .title </dev/null) || title=$pr
+      fleet notify "PR opened: $title" "${pr#https://github.com/}" --url "$pr" </dev/null
+    done < <(grep -oE 'https://github\.com/[^/ ]+/[^/ ]+/pull/[0-9]+' <<<"$out" | sort -u)
   fi
 }
 
