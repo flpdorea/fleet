@@ -38,7 +38,7 @@
 			// A tagged device gets no access as a source, not even to another
 			// fleet machine: SSH and both Orca ports stay closed to it.
 			"src":  "tag:fleet",
-			"deny": ["tag:fleet:22", "tag:fleet:6768", "tag:fleet:6769"],
+			"deny": ["tag:fleet:22", "tag:fleet:6768", "tag:fleet:6769", "tag:fleet:2586"],
 		},
 	],
 }

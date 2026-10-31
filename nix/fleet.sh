@@ -11,6 +11,8 @@ As a context user (personal, work):
   login     set up the git identity, GitHub and the agent's login
   pair      print the link that connects the Orca app to this server
   status    show whether setup ran and whether the Orca server is ready
+  notify    push a notification to the phone: <title> <message>
+            [--url <link>] [--priority min|low|default|high|max]
 
 As root:
   rebuild   update to the latest release (or the branch it follows) and apply it
@@ -135,11 +137,42 @@ status() {
     || echo "no response (systemctl status orca-serve-$CTX)"
 }
 
+# Pushes a notification to this context's ntfy topic, which the phone
+# subscribes to. Hooks and scripts call it, never the agents themselves.
+notify() {
+  local title="" message="" url="" priority=3 body
+  local use="usage: fleet notify <title> <message> [--url <link>] [--priority <p>]"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --url)      url=${2:?$use}; shift 2 ;;
+      --priority) priority=${2:?$use}; shift 2 ;;
+      *)
+        if [ -z "$title" ]; then title=$1; elif [ -z "$message" ]; then message=$1
+        else echo "fleet notify: unexpected argument: $1" >&2; exit 1; fi
+        shift ;;
+    esac
+  done
+  [ -n "$title" ] && [ -n "$message" ] ||
+    { echo "$use" >&2; exit 1; }
+  case "$priority" in
+    min) priority=1 ;; low) priority=2 ;; default) priority=3 ;; high) priority=4 ;; max|urgent) priority=5 ;;
+    [1-5]) ;;
+    *) echo "fleet notify: priority is 1-5 or min, low, default, high, max" >&2; exit 1 ;;
+  esac
+  body=$(jq -n --arg topic "$CTX" --arg title "$title" --arg message "$message" \
+    --arg click "$url" --argjson priority "$priority" \
+    '{topic: $topic, title: $title, message: $message, priority: $priority}
+     + (if $click == "" then {} else {click: $click} end)')
+  curl -fsS --max-time 10 -o /dev/null -H 'Content-Type: application/json' \
+    -d "$body" "$(cat /etc/fleet/ntfy-url)"
+}
+
 case "${1:-}" in
   ""|help|-h|--help) usage ;;
   login)   context; login ;;
   pair)    context; pair ;;
   status)  context; status ;;
+  notify)  shift; context; notify "$@" ;;
   rebuild) shift; rebuild "$@" ;;
   *)       echo "fleet: unknown command: $1" >&2; usage >&2; exit 1 ;;
 esac

@@ -157,6 +157,26 @@ fleet pair
 
 It prints that context's pairing link. On your Mac or phone, with Tailscale connected: **Orca → Settings → Remote Orca Servers → Add Server**, name it (`fleet personal`) and paste the link. Repeat for `work`. Treat these links like passwords.
 
+## Notifications on the phone
+
+The VPS runs an [ntfy](https://ntfy.sh) server on port 2586, reachable only through the tailnet, with one topic per context (`personal`, `work`). Hooks and scripts on the VPS publish to it with `fleet notify` when something needs you.
+
+1. Install the ntfy app on the phone ([Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy), [iOS](https://apps.apple.com/app/ntfy/id1625396347)) and keep Tailscale connected.
+2. In the app, add a subscription: topic `personal`, **Use another server**, `http://fleet:2586`. Repeat for `work`. On Android, turn on **Instant delivery** so messages arrive without Google's push service.
+3. Check it from the VPS, as the context user:
+
+   ```bash
+   fleet notify "Hello" "from $(whoami)"
+   ```
+
+If the phone does not resolve the short name `fleet`, use the full MagicDNS name (`tailscale status` on the VPS shows it, such as `fleet.tail1234.ts.net`) in the app and set it in `/etc/nixos/fleet.nix`, so links in notifications use it too:
+
+```nix
+fleet.ntfyBaseUrl = "http://fleet.tail1234.ts.net:2586";
+```
+
+On iOS, the app only receives pushes from a self-hosted server through Apple's push service, which needs ntfy.sh as an upstream relay: the VPS then sends ntfy.sh a poll request (an ID, not the message) for each notification. fleet does not set one up, so without it iOS shows notifications only while the app is open; Android receives them directly. To relay through ntfy.sh, add `services.ntfy-sh.settings.upstream-base-url = "https://ntfy.sh";` to `/etc/nixos/fleet.nix`.
+
 ## First run
 
 In the Orca app, open the paired server, add a repo and start an agent in one of its worktrees, for example:
