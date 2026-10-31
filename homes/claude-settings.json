@@ -18,6 +18,9 @@
     ],
     "Stop": [
       { "hooks": [{ "type": "command", "command": "fleet-claude-hook stop" }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "fleet-claude-hook bash" }] }
     ]
   }
 }
