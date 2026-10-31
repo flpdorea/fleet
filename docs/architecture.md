@@ -27,7 +27,7 @@ The `work` context is the same picture with the `work` user, its own Claude acco
 3. The agent works, pushes and opens pull requests with that context's GitHub login; Orca shows their status.
 4. The app shows every agent's terminal live, and the agents keep running when it is closed.
 
-SSH is only for setup and maintenance: `fleet login`, `fleet pair`, `fleet status` and, as root, `fleet rebuild`.
+SSH is only for setup and maintenance: `fleet login`, `fleet pair`, `fleet status`, the service commands (`fleet services`, `start`, `stop`, `restart`, `run`) and, as root, `fleet rebuild`.
 
 ## Why one Linux user per context
 

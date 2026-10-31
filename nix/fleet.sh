@@ -14,6 +14,17 @@ As a context user (personal, work):
   notify    push a notification to the phone: <title> <message>
             [--url <link>] [--priority min|low|default|high|max]
 
+Services (orca, setup, pr-ready, agent-comments) of your context, or as root
+of every context, or of the one given with --context <ctx>:
+  services           list them: state, and for pr-ready and agent-comments
+                     the last and next runs
+  start <service>    start it; for pr-ready and agent-comments, resume polling
+  stop <service>     stop it; for pr-ready and agent-comments, pause polling
+                     until the next boot or fleet rebuild
+  restart <service>  restart it; restarting orca kills the agents running in
+                     it, so it asks first (--force does not)
+  run <service>      run pr-ready or agent-comments once, now
+
 As root:
   rebuild   update to the latest release (or the branch it follows) and apply it
             --ref <tag|branch>  switch to another release or branch
@@ -22,7 +33,8 @@ As root:
 EOF
 }
 
-# Loads this user's context. Every command but help and rebuild needs it.
+# Loads this user's context. Every command needs it but help, rebuild and,
+# as root, the service commands.
 context() {
   FLEET="$HOME/fleet"
   CTX=$(cat "$FLEET/.context" 2>/dev/null) || {
@@ -32,6 +44,122 @@ context() {
   PRIMARY=$(jq -r --arg c "$CTX" '.[$c].primary' /etc/fleet/contexts.json)
   PORT=$(jq -r --arg c "$CTX" '.[$c].orcaPort' /etc/fleet/contexts.json)
   LOG="/var/log/fleet/orca-$CTX.log"
+}
+
+# The services a context runs, by the names fleet takes for them.
+SERVICES="orca setup pr-ready agent-comments"
+
+# unit <ctx> <service>: the systemd unit fleet acts on for a service. The
+# polled services act on their timer, so stopping one pauses the polling.
+unit() {
+  case "$2" in
+    orca)  echo "orca-serve-$1.service" ;;
+    setup) echo "fleet-setup-$1.service" ;;
+    pr-ready|agent-comments) echo "fleet-$2-$1.timer" ;;
+    *) echo "fleet: unknown service: $2 (one of: $SERVICES)" >&2; return 1 ;;
+  esac
+}
+
+# Parses the arguments of the service commands into SVC, FORCE and CTXS, the
+# contexts to act on: the user's own; as root, the one given with --context,
+# or else every context.
+targets() {
+  local ctx=""
+  SVC="" FORCE=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --context) ctx=${2:?usage: --context <ctx>}; shift 2 ;;
+      --force)   FORCE=1; shift ;;
+      -*) echo "fleet: unknown option: $1" >&2; exit 1 ;;
+      *)
+        [ -z "$SVC" ] || { echo "fleet: unexpected argument: $1" >&2; exit 1; }
+        SVC=$1; shift ;;
+    esac
+  done
+  if [ "$(id -u)" -eq 0 ]; then
+    if [ -n "$ctx" ]; then
+      jq -e --arg c "$ctx" 'has($c)' /etc/fleet/contexts.json >/dev/null ||
+        { echo "fleet: no context $ctx on this machine" >&2; exit 1; }
+      CTXS=("$ctx")
+    else
+      mapfile -t CTXS < <(jq -r 'keys[]' /etc/fleet/contexts.json)
+    fi
+  else
+    context
+    [ -z "$ctx" ] || [ "$ctx" = "$CTX" ] ||
+      { echo "fleet: as $CTX, you can only manage $CTX's services" >&2; exit 1; }
+    CTXS=("$CTX")
+  fi
+}
+
+# Lists each target context's services: whether they run and since when, and
+# for the polled ones how the last run went and when the next one is.
+services() {
+  local ctx svc u state detail job last next
+  printf '%-10s %-15s %-8s %s\n' CONTEXT SERVICE STATE DETAIL
+  for ctx in "${CTXS[@]}"; do
+    for svc in $SERVICES; do
+      u=$(unit "$ctx" "$svc")
+      state=$(systemctl show -P ActiveState "$u")
+      case "$u" in
+        *.timer)
+          job="${u%.timer}.service"
+          if [ "$(systemctl show -P ActiveState "$job")" = activating ]; then state=running
+          elif [ "$state" = active ]; then state=polling
+          else state=paused; fi
+          last=$(systemctl show -P LastTriggerUSec "$u")
+          next=$(systemctl list-timers --all --output=json "$u" | jq -r '.[0].next // 0')
+          if [ -n "$last" ]; then detail="last $last ($(systemctl show -P Result "$job"))"
+          else detail="never ran"; fi
+          [ "$next" -eq 0 ] || detail+=", next $(date -d "@$((next / 1000000))" '+%a %F %T %Z')"
+          ;;
+        *)
+          detail="$(systemctl show -P SubState "$u") since $(systemctl show -P StateChangeTimestamp "$u")"
+          ;;
+      esac
+      printf '%-10s %-15s %-8s %s\n' "$ctx" "$svc" "$state" "$detail"
+    done
+  done
+}
+
+# manage <start|stop|restart> <service>: acts on the service's unit in each
+# target context. A context user may do it for its own units only, which
+# polkit allows (nix/module.nix).
+manage() {
+  local verb=$1 ctx answer
+  shift
+  targets "$@"
+  [ -n "$SVC" ] || { echo "usage: fleet $verb <service> (one of: $SERVICES)" >&2; exit 1; }
+  unit "${CTXS[0]}" "$SVC" >/dev/null
+  if [ "$SVC" = orca ] && [ "$verb" != start ] && [ -z "$FORCE" ]; then
+    echo "fleet: this kills the agents running in the Orca server of: ${CTXS[*]}"
+    read -r -p "Go on? [y/N] " answer || answer=
+    [ "$answer" = y ] || { echo "fleet: nothing done (--force skips this question)" >&2; exit 1; }
+  fi
+  # A failure in one context does not skip the others.
+  local status=0
+  for ctx in "${CTXS[@]}"; do
+    echo "fleet: $verb $(unit "$ctx" "$SVC")"
+    systemctl "$verb" "$(unit "$ctx" "$SVC")" || status=1
+  done
+  return "$status"
+}
+
+# run <service>: runs a polled service once, now, and waits for it to end.
+run() {
+  local ctx job
+  targets "$@"
+  case "$SVC" in
+    pr-ready|agent-comments) ;;
+    *) echo "usage: fleet run pr-ready|agent-comments" >&2; exit 1 ;;
+  esac
+  local status=0
+  for ctx in "${CTXS[@]}"; do
+    job="fleet-$SVC-$ctx.service"
+    echo "fleet: run $job"
+    systemctl start "$job" || status=1
+  done
+  return "$status"
 }
 
 # The release series a tag belongs to: below 1.0 a minor bump can break
@@ -203,5 +331,8 @@ case "${1:-}" in
   status)  context; status ;;
   notify)  shift; context; notify "$@" ;;
   rebuild) shift; rebuild "$@" ;;
+  services) shift; targets "$@"; services ;;
+  start|stop|restart) manage "$@" ;;
+  run)     shift; run "$@" ;;
   *)       echo "fleet: unknown command: $1" >&2; usage >&2; exit 1 ;;
 esac
