@@ -52,7 +52,7 @@ Which model and effort an agent gets is chosen when you start it in the Orca app
 
 ## Claude Code settings
 
-For contexts whose harness is `claude`, `fleet-setup-<ctx>` merges `homes/claude-settings.json` into `~/.claude/settings.json`. It merges instead of replacing because Orca writes its hooks and status line to the same file. Keys set in the repo win on every rebuild, so a `/config` change to one of them lasts only until the next rebuild; keys the repo doesn't set stay as the user left them. Removing a key from the repo doesn't remove it from the user's file.
+For contexts whose harness is `claude`, `fleet-setup-<ctx>` merges `homes/claude-settings.json` into `~/.claude/settings.json`. It merges instead of replacing because Orca writes its hooks and status line to the same file. Hooks are appended to the lists Orca keeps for each event; the ones fleet added on the previous run are dropped first. Keys set in the repo win on every rebuild, so a `/config` change to one of them lasts only until the next rebuild; keys the repo doesn't set stay as the user left them. Removing a key from the repo doesn't remove it from the user's file.
 
 | Key | Why |
 |---|---|
@@ -60,6 +60,7 @@ For contexts whose harness is `claude`, `fleet-setup-<ctx>` merges `homes/claude
 | `spinnerTipsEnabled: false` | No feature tips under the spinner while Claude works. |
 | `feedbackSurveyRate: 0` | No session quality survey. |
 | `cleanupPeriodDays: 365` | Keep transcripts, and so `/resume`, for a year instead of the default 30 days. |
+| `hooks.Notification`, `hooks.Stop` | Push notifications to the phone through `fleet notify` (see [installation](installation.md#notifications-on-the-phone)), run by `fleet-claude-hook` (`nix/claude-hook.sh`). A permission prompt, a question or a session left waiting for input notifies "Waiting for you" with its repo and worktree; a task that ran for 5 minutes or more since your last prompt notifies when it stops, with the start of the agent's last message, and its idle prompt a minute later stays quiet. The hook detaches and ignores every error, so a notifier outage never blocks an agent. |
 | `extraKnownMarketplaces.caveman`, `enabledPlugins["caveman@caveman"]` | The [caveman](https://github.com/JuliusBrussee/caveman) plugin: terse replies that drop filler but keep code, commands and errors exact, to save output tokens. It starts on in every new session; say `stop caveman` to turn it off for a session, or put `{"defaultMode": "off"}` in `~/.config/caveman/config.json` to start sessions without it. `homes/CLAUDE.md` keeps it out of anything other people read (PRs, issues, comments, commits, docs). `fleet-setup-<ctx>` installs and updates it with `claude plugin`. |
 
 Auto-updates need no setting: the Nix package's wrapper already sets `DISABLE_AUTOUPDATER=1`, and `flake.lock` decides the version.

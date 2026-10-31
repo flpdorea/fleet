@@ -19,6 +19,13 @@ let
     text = builtins.readFile ./fleet.sh;
   };
 
+  # Claude Code hooks that notify the phone (homes/claude-settings.json).
+  claudeHook = pkgs.writeShellApplication {
+    name = "fleet-claude-hook";
+    runtimeInputs = (with pkgs; [ coreutils findutils gnused util-linux jq git ]) ++ [ fleetCli ];
+    text = builtins.readFile ./claude-hook.sh;
+  };
+
   setupScript = pkgs.writeShellApplication {
     name = "fleet-setup-user";
     runtimeInputs = (with pkgs; [ coreutils gnused gnugrep jq procps git gh bash nodejs_22 mise ]) ++ [ agents.orca agents.claude-code ];
@@ -138,7 +145,7 @@ in
         (with pkgs; [ git gh tmux jq curl nodejs_22 mise gcc gnumake pkg-config ])
         # agent-browser: headless browser for agents (visual-validation skill),
         # wrapped with its own Nix Chromium.
-        ++ [ agents.orca agents.agent-browser fleetCli ]
+        ++ [ agents.orca agents.agent-browser fleetCli claudeHook ]
         ++ lib.unique (lib.mapAttrsToList (_: c: primaryPkg.${c.primary}) contexts);
 
       # Per-user PATH (mise shims first) and global npm prefix, no sudo needed.

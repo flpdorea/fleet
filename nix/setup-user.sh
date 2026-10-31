@@ -65,8 +65,10 @@ orca skills install --skill orca-cli --skill orchestration --agent "$agent"
 # Our Claude Code settings (homes/claude-settings.json), merged over the
 # user's: Orca writes its hooks and status line to the same file, so it
 # is never replaced. Keys set here win on every run, even over /config.
-# The global instructions (homes/CLAUDE.md) belong to the repo and are
-# replaced on every run.
+# Hooks are lists that Orca fills too, so ours (fleet-claude-hook) are
+# appended to each event's list instead, after dropping the ones a previous
+# run added. The global instructions (homes/CLAUDE.md) belong to the repo
+# and are replaced on every run.
 if [ "$FLEET_PRIMARY" = claude ]; then
   echo "applying Claude Code settings and instructions"
   mkdir -p "$HOME/.claude"
@@ -74,7 +76,14 @@ if [ "$FLEET_PRIMARY" = claude ]; then
   settings="$HOME/.claude/settings.json"
   [ -s "$settings" ] || echo '{}' >"$settings"
   tmp=$(mktemp)
-  jq -s '.[0] * .[1]' "$settings" "$FLEET_CLAUDE_SETTINGS" >"$tmp" && cat "$tmp" >"$settings"
+  jq -s '
+    .[0] as $user | .[1] as $ours
+    | ($user * ($ours | del(.hooks)))
+    | .hooks = reduce (($ours.hooks // {}) | to_entries[]) as $e (
+        ($user.hooks // {})
+        | map_values(map(select(any(.hooks[]?; (.command // "") | startswith("fleet-claude-hook")) | not)));
+        .[$e.key] = (.[$e.key] // []) + $e.value)' \
+    "$settings" "$FLEET_CLAUDE_SETTINGS" >"$tmp" && cat "$tmp" >"$settings"
   rm -f "$tmp"
 
   # Our skills (homes/skills) and Anthropic's skill-creator, replaced on
