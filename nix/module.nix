@@ -268,7 +268,7 @@ in
           after = [ "network-online.target" "tailscaled.service" "fleet-setup-${ctx}.service" ];
           # Restarting the server kills the workers in flight. After a rebuild
           # that updates Orca, restart it at a quiet moment:
-          #   systemctl restart orca-serve-${ctx}
+          #   fleet restart orca
           restartIfChanged = false;
           environment = {
             NPM_CONFIG_PREFIX = "/home/${ctx}/.npm-global";
