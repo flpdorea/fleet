@@ -43,6 +43,14 @@ let
     text = builtins.readFile ./agent-comments.sh;
   };
 
+  # Starts an agent on each of the user's pull requests that got a review
+  # (fleet-pr-reviews-<ctx>).
+  prReviews = pkgs.writeShellApplication {
+    name = "fleet-pr-reviews";
+    runtimeInputs = (with pkgs; [ coreutils findutils gnugrep gnused gawk jq git gh ]) ++ [ agents.orca fleetCli ];
+    text = builtins.readFile ./pr-reviews.sh;
+  };
+
   setupScript = pkgs.writeShellApplication {
     name = "fleet-setup-user";
     runtimeInputs = (with pkgs; [ coreutils gnused gnugrep jq procps git gh bash nodejs_22 mise ]) ++ [ agents.orca agents.claude-code ];
@@ -68,6 +76,8 @@ let
     "fleet-pr-ready-${ctx}.timer"
     "fleet-agent-comments-${ctx}.service"
     "fleet-agent-comments-${ctx}.timer"
+    "fleet-pr-reviews-${ctx}.service"
+    "fleet-pr-reviews-${ctx}.timer"
   ];
 
   # The ntfy server that pushes notifications to the phone.
@@ -106,7 +116,7 @@ in
     };
 
     disabledServices = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.listOf (lib.types.enum [ "pr-ready" "agent-comments" ]));
+      type = lib.types.attrsOf (lib.types.listOf (lib.types.enum [ "pr-ready" "agent-comments" "pr-reviews" ]));
       default = { };
       example = { work = [ "agent-comments" ]; };
       description = ''
@@ -227,7 +237,7 @@ in
       # `fleet pair` reads it there. copytruncate keeps each file's owner, so
       # its context user can still read it.
       services.logrotate.settings.fleet = {
-        files = map (svc: "/var/log/fleet/${svc}-*.log") [ "setup" "pr-ready" "agent-comments" ];
+        files = map (svc: "/var/log/fleet/${svc}-*.log") [ "setup" "pr-ready" "agent-comments" "pr-reviews" ];
         frequency = "weekly";
         rotate = 4;
         compress = true;
@@ -263,7 +273,7 @@ in
       systemd.tmpfiles.rules =
         lib.concatLists (lib.mapAttrsToList (ctx: _:
           map (svc: "f /var/log/fleet/${svc}-${ctx}.log 0600 ${ctx} users -")
-            [ "orca" "setup" "pr-ready" "agent-comments" ]) contexts);
+            [ "orca" "setup" "pr-ready" "agent-comments" "pr-reviews" ]) contexts);
 
       systemd.services = forContexts (ctx: c: {
         # Prepares the user: installs Orca's orca-cli and orchestration skills
@@ -389,10 +399,29 @@ in
             StandardError = "append:/var/log/fleet/agent-comments-${ctx}.log";
           };
         };
+
+        # Polls GitHub for new reviews on the user's open pull requests and
+        # starts a Claude agent with the pr-review skill on each
+        # (nix/pr-reviews.sh). Its timer exists in Claude contexts only.
+        "fleet-pr-reviews-${ctx}" = {
+          description = "fleet: start ${ctx}'s agents on reviewed pull requests";
+          wants = [ "network-online.target" ];
+          after = [ "network-online.target" "orca-serve-${ctx}.service" ];
+          environment.FLEET_CONTEXT = ctx;
+          serviceConfig = {
+            Type = "oneshot";
+            User = ctx;
+            ExecStart = lib.getExe prReviews;
+            StandardOutput = "append:/var/log/fleet/pr-reviews-${ctx}.log";
+            StandardError = "append:/var/log/fleet/pr-reviews-${ctx}.log";
+          };
+        };
       });
 
       # A polled service turned off in fleet.disabledServices gets no timer.
-      systemd.timers = forContexts (ctx: _:
+      # pr-reviews needs Claude Code (its skill and Lavish hook), so other
+      # contexts never get its timer.
+      systemd.timers = forContexts (ctx: c:
         let on = svc: !lib.elem svc (cfg.disabledServices.${ctx} or [ ]); in
         lib.optionalAttrs (on "pr-ready") {
           "fleet-pr-ready-${ctx}" = {
@@ -408,6 +437,14 @@ in
             timerConfig = {
               OnBootSec = "2min";
               OnUnitActiveSec = "1min";
+            };
+          };
+        } // lib.optionalAttrs (on "pr-reviews" && c.primary == "claude") {
+          "fleet-pr-reviews-${ctx}" = {
+            wantedBy = [ "timers.target" ];
+            timerConfig = {
+              OnBootSec = "3min";
+              OnUnitActiveSec = "2min";
             };
           };
         });
