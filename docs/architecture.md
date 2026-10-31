@@ -53,6 +53,7 @@ Per context (`<ctx>` is `personal` or `work`):
 |---|---|---|
 | `fleet-setup-<ctx>` | oneshot, as the user | Installs Orca's `orca-cli` and `orchestration` skills globally for the context's harness, and removes what firstmate left on older installs (its clone, `no-mistakes`, `treehouse`, the `*-axi` tools and their hooks). Reruns when the repo or Orca changes. |
 | `orca-serve-<ctx>` | long-running, as the user | Waits for the Tailscale IP, then runs `orca-ide serve --port <port> --pairing-address <tailscale ip>`. Logs to `/var/log/fleet/orca-<ctx>.log`. Not restarted by rebuilds. |
+| `fleet-pr-ready-<ctx>` | oneshot, as the user, every 5 minutes (timer) | Notifies the phone once per head commit when one of the user's open pull requests is ready to merge: checks green or none, no changes requested, every thread resolved, no conflict. Drafts count. The first run records what is ready already without notifying. |
 | `docker` (user unit) | long-running, in the user's systemd manager | The context's rootless Docker daemon, on `/run/user/<uid>/docker.sock`. Lingering starts it at boot; `orca-serve-<ctx>` points agents at it with `DOCKER_HOST`. |
 
 Machine-wide: `sshd`, `tailscaled`, the firewall, `ntfy-sh` (push notifications on port 2586, one topic per context), `nix-ld`, weekly Nix garbage collection, and (first boot only) `fleet-bootstrap`.
