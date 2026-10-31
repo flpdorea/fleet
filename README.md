@@ -67,8 +67,8 @@ fleet/
 │   └── skills/               installed in ~/.claude/skills, with skill-creator and lavish
 ├── tailscale/policy.hujson   tailnet access policy, applied by CI
 ├── scripts/
-│   ├── github-settings.sh      one-time: squash-only merges, the main ruleset
-│   ├── tailscale-bootstrap.sh  one-time: policy, OAuth client, secrets
+│   ├── github-settings.sh      one-time: squash-only merges, the main ruleset, environments
+│   ├── tailscale-bootstrap.sh  one-time: policy, OAuth clients, secrets
 │   └── tailscale-authkey.sh    mints the single-use install key
 ├── .github/
 │   ├── workflows/            nix: lock, lint, evaluate · tailscale: test, apply the policy · pr, issues: check titles and templates

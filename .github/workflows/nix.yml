@@ -1,6 +1,10 @@
 # Keeps flake.lock (every pinned version) current, lints the scripts and
 # workflows, and checks that the NixOS configuration evaluates before you
 # run fleet rebuild on the VPS.
+#
+# check runs on pull requests and pushes, with no secrets. update runs on
+# main only: it is the one job that can push, through the deploy key in the
+# deploy environment, which only main can use.
 name: nix
 
 on:
@@ -16,13 +20,45 @@ permissions:
 
 jobs:
   check:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked] the last step pushes flake.lock
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Deploy key added by scripts/github-settings.sh. The main ruleset
-          # lets it push, so the flake.lock commit below lands without a PR.
-          ssh-key: ${{ secrets.FLAKE_LOCK_DEPLOY_KEY }}
+          persist-credentials: false
+
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+        with:
+          extra-conf: |
+            extra-substituters = https://cache.numtide.com
+            extra-trusted-public-keys = niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=
+
+      - name: Lock versions (creates flake.lock if missing)
+        run: nix flake lock
+
+      - name: Shellcheck
+        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh scripts/tailscale-authkey.sh scripts/tailscale-bootstrap.sh scripts/github-settings.sh .github/scripts/deploy-push.sh
+
+      # zizmor audits the workflows for security problems (template injection,
+      # unpinned actions, leaked credentials); actionlint checks they are valid.
+      - name: Lint workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          nix run nixpkgs#zizmor -- --format=github .
+          nix run nixpkgs#actionlint
+
+      - name: Evaluate the whole NixOS configuration
+        run: nix eval --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath
+
+  update:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: deploy
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
         with:
@@ -37,29 +73,20 @@ jobs:
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: nix flake update
 
-      - name: Shellcheck
-        run: nix run nixpkgs#shellcheck -- -S warning --shell=bash install.sh nix/setup-user.sh nix/fleet.sh scripts/tailscale-authkey.sh scripts/tailscale-bootstrap.sh scripts/github-settings.sh
-
-      # zizmor audits the workflows for security problems (template injection,
-      # unpinned actions, leaked credentials); actionlint checks they are valid.
-      - name: Lint workflows
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          nix run nixpkgs#zizmor -- --format=github .
-          nix run nixpkgs#actionlint
-
       - name: Evaluate the whole NixOS configuration
         run: nix eval --raw .#nixosConfigurations.ci.config.system.build.toplevel.drvPath
 
-      # Pushes straight to main over the deploy key, which bypasses the ruleset.
+      # The deploy key (scripts/github-settings.sh) is the only actor the main
+      # ruleset lets push without a pull request. It exists only in this step,
+      # not while the updated inputs above are fetched and evaluated.
       - name: Publish flake.lock
-        if: github.event_name != 'pull_request'
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: |
           if [ -n "$(git status --porcelain flake.lock)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add flake.lock
             git commit -m "chore(nix): update pinned versions"
-            git push
+            .github/scripts/deploy-push.sh HEAD:refs/heads/main
           fi
