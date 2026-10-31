@@ -33,6 +33,14 @@ let
     text = builtins.readFile ./pr-ready.sh;
   };
 
+  # Starts an agent for each new /agent comment of yours on an issue
+  # (fleet-agent-comments-<ctx>).
+  agentComments = pkgs.writeShellApplication {
+    name = "fleet-agent-comments";
+    runtimeInputs = (with pkgs; [ coreutils gnugrep gnused jq gh ]) ++ [ agents.orca ];
+    text = builtins.readFile ./agent-comments.sh;
+  };
+
   setupScript = pkgs.writeShellApplication {
     name = "fleet-setup-user";
     runtimeInputs = (with pkgs; [ coreutils gnused gnugrep jq procps git gh bash nodejs_22 mise ]) ++ [ agents.orca agents.claude-code ];
@@ -293,6 +301,25 @@ in
             ExecStart = lib.getExe prReady;
           };
         };
+
+        # Polls GitHub for new /agent comments of the user on issues of the
+        # repos in the context's Orca, and starts an agent in a new worktree
+        # for each (nix/agent-comments.sh). Polling keeps everything on the
+        # VPS: no inbound path from GitHub, no new port.
+        "fleet-agent-comments-${ctx}" = {
+          description = "fleet: start ${ctx}'s agents from /agent comments";
+          wants = [ "network-online.target" ];
+          after = [ "network-online.target" "orca-serve-${ctx}.service" ];
+          environment = {
+            FLEET_CONTEXT = ctx;
+            FLEET_PRIMARY = c.primary;
+          };
+          serviceConfig = {
+            Type = "oneshot";
+            User = ctx;
+            ExecStart = lib.getExe agentComments;
+          };
+        };
       });
 
       systemd.timers = forContexts (ctx: _: {
@@ -301,6 +328,13 @@ in
           timerConfig = {
             OnBootSec = "5min";
             OnUnitActiveSec = "5min";
+          };
+        };
+        "fleet-agent-comments-${ctx}" = {
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            OnBootSec = "2min";
+            OnUnitActiveSec = "1min";
           };
         };
       });
