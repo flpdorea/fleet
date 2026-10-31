@@ -98,7 +98,7 @@ start() { # <repo id> <slug> <comment id> <issue> <comment url> <body>
       "Started an agent in the \`$FLEET_CONTEXT\` context, in worktree \`$name\` (branch \`$(jq -r '.result.worktree.branch | ltrimstr("refs/heads/")' <<<"$out")\`)."
   else
     echo "fleet-agent-comments: $slug#$issue: $out" >&2
-    reply "$slug" "$id" "$issue" confused "Could not start an agent in the \`$FLEET_CONTEXT\` context; see \`journalctl -u fleet-agent-comments-$FLEET_CONTEXT\`."
+    reply "$slug" "$id" "$issue" confused "Could not start an agent in the \`$FLEET_CONTEXT\` context; see \`fleet logs agent-comments\` on the server."
   fi
 }
 

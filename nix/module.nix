@@ -205,6 +205,18 @@ in
         });
       '') (builtins.attrNames contexts);
 
+      # Keeps the logs in /var/log/fleet from filling the disk. copytruncate,
+      # because Orca keeps its log open for as long as it runs.
+      services.logrotate.settings.fleet = {
+        files = "/var/log/fleet/*.log";
+        frequency = "weekly";
+        rotate = 4;
+        compress = true;
+        copytruncate = true;
+        missingok = true;
+        notifempty = true;
+      };
+
       systemd.tmpfiles.rules = [
         "d /var/log/fleet 0711 root root -"
         # Shared by every context's Xvfb; sticky so no user can remove another's socket.
@@ -226,8 +238,13 @@ in
         };
       });
 
+      # Each service of a context logs to /var/log/fleet/<service>-<ctx>.log,
+      # owned by the context user so that `fleet logs` can read it: the
+      # system journal is for root only.
       systemd.tmpfiles.rules =
-        lib.mapAttrsToList (ctx: _: "f /var/log/fleet/orca-${ctx}.log 0600 ${ctx} users -") contexts;
+        lib.concatLists (lib.mapAttrsToList (ctx: _:
+          map (svc: "f /var/log/fleet/${svc}-${ctx}.log 0600 ${ctx} users -")
+            [ "orca" "setup" "pr-ready" "agent-comments" ]) contexts);
 
       systemd.services = forContexts (ctx: c: {
         # Prepares the user: installs Orca's orca-cli and orchestration skills
@@ -256,6 +273,8 @@ in
             Type = "oneshot";
             RemainAfterExit = true;
             User = ctx;
+            StandardOutput = "append:/var/log/fleet/setup-${ctx}.log";
+            StandardError = "append:/var/log/fleet/setup-${ctx}.log";
           };
         };
 
@@ -326,6 +345,8 @@ in
             Type = "oneshot";
             User = ctx;
             ExecStart = lib.getExe prReady;
+            StandardOutput = "append:/var/log/fleet/pr-ready-${ctx}.log";
+            StandardError = "append:/var/log/fleet/pr-ready-${ctx}.log";
           };
         };
 
@@ -345,6 +366,8 @@ in
             Type = "oneshot";
             User = ctx;
             ExecStart = lib.getExe agentComments;
+            StandardOutput = "append:/var/log/fleet/agent-comments-${ctx}.log";
+            StandardError = "append:/var/log/fleet/agent-comments-${ctx}.log";
           };
         };
       });

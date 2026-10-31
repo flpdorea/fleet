@@ -24,6 +24,8 @@ of every context, or of the one given with --context <ctx>:
   restart <service>  restart it; restarting orca kills the agents running in
                      it, so it asks first (--force does not)
   run <service>      run pr-ready or agent-comments once, now
+  logs <service>     show the end of its log
+                     [-n <lines>] [-f to follow what it writes next]
 
 As root:
   rebuild   update to the latest release (or the branch it follows) and apply it
@@ -160,6 +162,27 @@ run() {
     systemctl start "$job" || status=1
   done
   return "$status"
+}
+
+# logs <service> [-n <lines>] [-f]: the end of the service's log in each
+# target context, /var/log/fleet/<service>-<ctx>.log (nix/module.nix), and
+# with -f what it writes next.
+logs() {
+  local lines=50 follow="" ctx args=() files=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -f|--follow) follow=1; shift ;;
+      -n|--lines)  lines=${2:?usage: -n <lines>}; shift 2 ;;
+      *) args+=("$1"); shift ;;
+    esac
+  done
+  [[ $lines =~ ^[0-9]+$ ]] || { echo "fleet logs: -n takes a number of lines" >&2; exit 1; }
+  targets "${args[@]}"
+  [ -n "$SVC" ] || { echo "usage: fleet logs <service> (one of: $SERVICES) [-n <lines>] [-f]" >&2; exit 1; }
+  unit "${CTXS[0]}" "$SVC" >/dev/null
+  for ctx in "${CTXS[@]}"; do files+=("/var/log/fleet/$SVC-$ctx.log"); done
+  if [ -n "$follow" ]; then exec tail -n "$lines" -F "${files[@]}"; fi
+  tail -n "$lines" "${files[@]}"
 }
 
 # The release series a tag belongs to: below 1.0 a minor bump can break
@@ -334,5 +357,6 @@ case "${1:-}" in
   services) shift; targets "$@"; services ;;
   start|stop|restart) manage "$@" ;;
   run)     shift; run "$@" ;;
+  logs)    shift; logs "$@" ;;
   *)       echo "fleet: unknown command: $1" >&2; usage >&2; exit 1 ;;
 esac
