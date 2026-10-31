@@ -85,8 +85,38 @@ stop() {
   mkdir -p "$state" && touch "$(marker)"
 }
 
+# A Bash command opened a Lavish board (a plan, an issue draft, an
+# escalation) or a pull request: notify with its link. lavish-axi prints
+# the session's Tailscale URL; gh prints the URL of each PR it creates.
+bash_tool() {
+  local cmd out url file title pr
+  local run='(^|[;&|(]|&&)[[:space:]]*'
+  cmd=$(field .tool_input.command)
+  out=$(jq -r '[.tool_response.stdout, .tool_response.stderr] | map(select(.)) | join("\n")' <<<"$input")
+  if [[ $cmd =~ ${run}(npx[[:space:]]+(-y[[:space:]]+)?)?lavish-axi[[:space:]] ]]; then
+    grep -qE '^ *status: (opened|reopened|ready)$' <<<"$out" || return 0
+    url=$(sed -n 's/^ *url: "\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' <<<"$out" | head -1)
+    file=$(sed -n 's/^ *file: "\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' <<<"$out" | head -1)
+    [ -n "$url" ] || return 0
+    title=$(sed -n 's:.*<title>\([^<]*\)</title>.*:\1:p' "$file" 2>/dev/null | head -1)
+    fleet notify "Review: ${title:-$(basename "$file" .html)}" "$(where)" --url "$url" --priority high
+  elif [[ $cmd =~ ${run}gh[[:space:]]+(pr[[:space:]]+create|stack[[:space:]]+submit) ]]; then
+    mkdir -p "$state"
+    # Parallel hooks must not both notify the same PR.
+    exec 9>>"$state/prs"
+    flock 9
+    for pr in $(grep -oE 'https://github\.com/[^/ ]+/[^/ ]+/pull/[0-9]+' <<<"$out" | sort -u); do
+      grep -qxF "$pr" "$state/prs" && continue
+      echo "$pr" >>"$state/prs"
+      title=$(timeout 10 gh pr view "$pr" --json title -q .title) || title=$pr
+      fleet notify "PR opened: $title" "${pr#https://github.com/}" --url "$pr"
+    done
+  fi
+}
+
 case "${1:-}" in
   notification) notification || true ;;
   stop)         stop || true ;;
+  bash)         bash_tool || true ;;
 esac
 exit 0

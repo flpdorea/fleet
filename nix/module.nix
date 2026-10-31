@@ -22,7 +22,7 @@ let
   # Claude Code hooks that notify the phone (homes/claude-settings.json).
   claudeHook = pkgs.writeShellApplication {
     name = "fleet-claude-hook";
-    runtimeInputs = (with pkgs; [ coreutils findutils gnused util-linux jq git ]) ++ [ fleetCli ];
+    runtimeInputs = (with pkgs; [ coreutils findutils gnugrep gnused util-linux jq git gh ]) ++ [ fleetCli ];
     text = builtins.readFile ./claude-hook.sh;
   };
 
