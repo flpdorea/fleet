@@ -30,6 +30,11 @@ Run it once per implementation, not after every fix it triggers.
    - **Constraints:** read-only. Do not edit, commit, push, or touch the PR. Ignore style nits a formatter would catch.
    - **Acceptance:** write the findings to `/tmp/review-<branch>.md`, each with file:line, the problem, a concrete failure scenario, and severity; write "No findings" if there are none. Then send `worker_done` with `--report-path` pointing to that file.
 4. **Wait.** Use the guide's `check --wait` loop for `worker_done`, `escalation` and `question`. Answer questions; a timeout is a checkpoint, not a failure. Don't start other edits in the same files while waiting.
-5. **Settle.** Read the report, then `worker-release` the reviewer and acknowledge the delivery, as the guide's completion accounting says.
+5. **Settle.** Read the report, then `worker-release` the reviewer and acknowledge the delivery, as the guide's completion accounting says. `ok: true` doesn't mean the terminal closed: read the release receipt's `result.state`, not just `ok`, so don't filter its output down to `.ok`.
+   - `released` or `already_released`: done.
+   - `retained` (usually `reason: user_takeover`, when the user looked at or typed in the reviewer's terminal): Orca keeps it open on purpose. The reviewer is read-only and has already sent `worker_done`, so close it yourself: `ORCA terminal close --terminal <agentTerminalHandle> --tab --json`, with the handle from `worker-show --dispatch <dispatch_id>`. Skip this only if the user said to keep it.
+   - `release_pending` or `release_unknown`: follow the receipt's recovery action.
+
+   Then `worker-list --run <run_id> --terminal-state reclaimable --json` must return no workers.
 6. **Act on findings.** Verify each one against the code yourself; the reviewer can be wrong. Fix the real ones in a new commit and push it. Don't run a second review for those fixes unless they were large.
 7. **Report.** In your final reply, say in a line or two what the review found and what you fixed or rejected, with a reason for each rejection.
