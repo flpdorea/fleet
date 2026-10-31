@@ -21,6 +21,8 @@ of every context, or of the one given with --context <ctx>:
   start <service>    start it; for pr-ready and agent-comments, resume polling
   stop <service>     stop it; for pr-ready and agent-comments, pause polling
                      until the next boot or fleet rebuild
+                     (fleet.disabledServices in /etc/nixos/fleet.nix turns it
+                     off for good)
   restart <service>  restart it; restarting orca kills the agents running in
                      it, so it asks first (--force does not)
   run <service>      run pr-ready or agent-comments once, now
@@ -107,6 +109,7 @@ services() {
         *.timer)
           job="${u%.timer}.service"
           if [ "$(systemctl show -P ActiveState "$job")" = activating ]; then state=running
+          elif [ "$(systemctl show -P LoadState "$u")" = not-found ]; then state=off
           elif [ "$state" = active ]; then state=polling
           else state=paused; fi
           last=$(systemctl show -P LastTriggerUSec "$u")
@@ -114,6 +117,7 @@ services() {
           if [ -n "$last" ]; then detail="last $last ($(systemctl show -P Result "$job"))"
           else detail="never ran"; fi
           [ "$next" -eq 0 ] || detail+=", next $(date -d "@$((next / 1000000))" '+%a %F %T %Z')"
+          [ "$state" != off ] || detail="turned off in fleet.disabledServices"
           ;;
         *)
           detail="$(systemctl show -P SubState "$u") since $(systemctl show -P StateChangeTimestamp "$u")"
@@ -128,7 +132,7 @@ services() {
 # target context. A context user may do it for its own units only, which
 # polkit allows (nix/module.nix).
 manage() {
-  local verb=$1 ctx answer
+  local verb=$1 ctx u answer
   shift
   targets "$@"
   [ -n "$SVC" ] || { echo "usage: fleet $verb <service> (one of: $SERVICES)" >&2; exit 1; }
@@ -141,8 +145,13 @@ manage() {
   # A failure in one context does not skip the others.
   local status=0
   for ctx in "${CTXS[@]}"; do
-    echo "fleet: $verb $(unit "$ctx" "$SVC")"
-    systemctl "$verb" "$(unit "$ctx" "$SVC")" || status=1
+    u=$(unit "$ctx" "$SVC")
+    if [ "$(systemctl show -P LoadState "$u")" = not-found ]; then
+      echo "fleet: $SVC is off for $ctx in fleet.disabledServices; fleet run $SVC runs it once" >&2
+      continue
+    fi
+    echo "fleet: $verb $u"
+    systemctl "$verb" "$u" || status=1
   done
   return "$status"
 }

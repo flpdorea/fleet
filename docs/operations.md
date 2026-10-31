@@ -20,6 +20,7 @@ Each context runs four services, which `fleet` names `orca` (the Orca server), `
 fleet restart orca            # asks first: it kills the agents running in Orca
 fleet restart setup           # rerun the setup
 fleet stop agent-comments     # pause the polling until the next boot or rebuild
+                              # (for good: fleet.disabledServices, see configuration)
 fleet start agent-comments    # resume it
 fleet run pr-ready            # poll once, now
 fleet logs agent-comments -f  # its log, following what it writes next

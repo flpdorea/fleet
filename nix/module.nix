@@ -103,10 +103,26 @@ in
       example = "http://fleet.tail1234.ts.net:${toString ntfyPort}";
       description = "Address the phone uses to reach the ntfy server, through the tailnet.";
     };
+
+    disabledServices = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.listOf (lib.types.enum [ "pr-ready" "agent-comments" ]));
+      default = { };
+      example = { work = [ "agent-comments" ]; };
+      description = ''
+        Polled services to turn off, per context. Their timer is not
+        installed, so they never run on their own; `fleet run` still runs
+        them once.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable (lib.mkMerge [
     {
+      assertions = [{
+        assertion = lib.all (ctx: lib.elem ctx cfg.contexts) (builtins.attrNames cfg.disabledServices);
+        message = "fleet.disabledServices names a context missing from fleet.contexts.";
+      }];
+
       nix.settings = {
         experimental-features = [ "nix-command" "flakes" ];
         extra-substituters = [ "https://cache.numtide.com" ];
@@ -374,22 +390,26 @@ in
         };
       });
 
-      systemd.timers = forContexts (ctx: _: {
-        "fleet-pr-ready-${ctx}" = {
-          wantedBy = [ "timers.target" ];
-          timerConfig = {
-            OnBootSec = "5min";
-            OnUnitActiveSec = "5min";
+      # A polled service turned off in fleet.disabledServices gets no timer.
+      systemd.timers = forContexts (ctx: _:
+        let on = svc: !lib.elem svc (cfg.disabledServices.${ctx} or [ ]); in
+        lib.optionalAttrs (on "pr-ready") {
+          "fleet-pr-ready-${ctx}" = {
+            wantedBy = [ "timers.target" ];
+            timerConfig = {
+              OnBootSec = "5min";
+              OnUnitActiveSec = "5min";
+            };
           };
-        };
-        "fleet-agent-comments-${ctx}" = {
-          wantedBy = [ "timers.target" ];
-          timerConfig = {
-            OnBootSec = "2min";
-            OnUnitActiveSec = "1min";
+        } // lib.optionalAttrs (on "agent-comments") {
+          "fleet-agent-comments-${ctx}" = {
+            wantedBy = [ "timers.target" ];
+            timerConfig = {
+              OnBootSec = "2min";
+              OnUnitActiveSec = "1min";
+            };
           };
-        };
-      });
+        });
     }
   ]);
 }

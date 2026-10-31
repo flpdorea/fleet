@@ -12,7 +12,7 @@ Every change follows the same path: edit, commit, push, wait for CI, then run `f
 | Default language runtimes (mise) | `homes/mise.toml` |
 | Packages, firewall, services | `nix/module.nix` |
 | Pinned versions | `flake.lock` (`nix flake update`, or let CI do it) |
-| Which contexts this machine runs, SSH keys | `/etc/nixos/fleet.nix` on the VPS |
+| Which contexts this machine runs, SSH keys, polled services turned off | `/etc/nixos/fleet.nix` on the VPS |
 
 ## Contexts
 
@@ -110,6 +110,18 @@ The same file sets two things the machine needs:
 The shims directory (`~/.local/share/mise/shims`) comes first in the PATH of login shells and of the Orca servers, so agents get the right version in non-interactive shells without `mise activate`. `gcc`, `make` and `pkg-config` are installed system-wide for native extensions and for linking Rust.
 
 To change a default, edit `[tools]` in `homes/mise.toml`; the `mise` skill tells Claude to do it by PR. Versions a user adds with `mise use -g` live in their `~/.config/mise/config.toml` and survive rebuilds.
+
+## Turning off a polled service
+
+`pr-ready` and `agent-comments` poll GitHub on a timer. `fleet stop <service>` pauses one until the next boot. To turn one off for good on a machine, list it in `/etc/nixos/fleet.nix`, then run `fleet rebuild`:
+
+```nix
+fleet.disabledServices = {
+  work = [ "agent-comments" ];
+};
+```
+
+Its timer is then not installed: `fleet services` shows it `off`, and `fleet run <service>` still runs it once. Remove it from the list and rebuild to turn it back on.
 
 ## Adding a context
 
