@@ -1,7 +1,7 @@
-# Checks every pull request against the repo's conventions. Both jobs are
-# required checks of the main ruleset (scripts/github-settings.sh), so a
-# pull request cannot merge until its title and body pass. Editing the
-# title or body reruns them.
+# Checks every pull request against the repo's conventions. Every job is a
+# required check of the main ruleset (scripts/github-settings.sh), so a pull
+# request cannot merge until its title, body, base branch and, for forks,
+# linked issue pass. Editing the pull request reruns them.
 name: pr
 
 on:
@@ -52,4 +52,63 @@ jobs:
             const missing = required.filter((h) => !sections[h]);
             if (missing.length) {
               core.setFailed(`Fill in these sections of the pull request template: ${missing.join(', ')}.`);
+            }
+
+  base:
+    name: pr-base
+    runs-on: ubuntu-latest
+    steps:
+      # Pull requests target main. The exception is a stack (gh stack): a pull
+      # request from a branch of this repo may target another branch that is
+      # itself the head of an open pull request.
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const trunk = context.payload.repository.default_branch;
+            const base = pr.base.ref;
+            if (base === trunk) return;
+            if (pr.head.repo?.full_name !== `${context.repo.owner}/${context.repo.repo}`) {
+              core.setFailed(`Pull requests from forks must target ${trunk}, not ${base}.`);
+              return;
+            }
+            const { data: below } = await github.rest.pulls.list({
+              ...context.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${base}`,
+            });
+            if (!below.length) {
+              core.setFailed(`Target ${trunk}, or a branch with an open pull request (a stack). ${base} is neither.`);
+            }
+
+  issue:
+    name: pr-issue
+    # Only pull requests from forks: they must close an open issue, so a change
+    # nobody asked for is discussed before someone writes it.
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      issues: read
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            // closingIssuesReferences covers both closing keywords in the body
+            // (Closes #123) and issues linked from the sidebar.
+            const { repository } = await github.graphql(`
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    closingIssuesReferences(first: 10) {
+                      nodes { state repository { nameWithOwner } }
+                    }
+                  }
+                }
+              }`, { ...context.repo, number: context.payload.pull_request.number });
+            const here = `${context.repo.owner}/${context.repo.repo}`;
+            const open = repository.pullRequest.closingIssuesReferences.nodes
+              .filter((i) => i.state === 'OPEN' && i.repository.nameWithOwner === here);
+            if (!open.length) {
+              core.setFailed('Link an open issue of this repo: add "Closes #123" to the body, which reruns this check. Linking from the sidebar does not rerun it; edit the pull request or push afterwards. See CONTRIBUTING.md.');
             }
