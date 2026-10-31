@@ -58,7 +58,7 @@ notification() {
 elapsed() {
   local since
   since=$(jq -rs '
-    [ .[] | select(.type == "user" and (.isMeta | not)
+    [ .[] | select(.type == "user" and (.isMeta or .isCompactSummary or .isVisibleInTranscriptOnly | not)
         and (.message.content | if type == "string" then true else any(.[]; .type == "text") end))
       | .timestamp ] | last // empty
     | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601' "$(field .transcript_path)")
