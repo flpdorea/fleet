@@ -19,7 +19,7 @@ Each context runs four services, which `fleet` names `orca` (the Orca server), `
 ```bash
 fleet restart orca            # asks first: it kills the agents running in Orca
 fleet restart setup           # rerun the setup
-fleet stop agent-comments     # pause the polling until the next boot
+fleet stop agent-comments     # pause the polling until the next boot or rebuild
 fleet start agent-comments    # resume it
 fleet run pr-ready            # poll once, now
 ```

@@ -20,7 +20,7 @@ of every context, or of the one given with --context <ctx>:
                      the last and next runs
   start <service>    start it; for pr-ready and agent-comments, resume polling
   stop <service>     stop it; for pr-ready and agent-comments, pause polling
-                     until the next boot
+                     until the next boot or fleet rebuild
   restart <service>  restart it; restarting orca kills the agents running in
                      it, so it asks first (--force does not)
   run <service>      run pr-ready or agent-comments once, now
@@ -136,10 +136,13 @@ manage() {
     read -r -p "Go on? [y/N] " answer || answer=
     [ "$answer" = y ] || { echo "fleet: nothing done (--force skips this question)" >&2; exit 1; }
   fi
+  # A failure in one context does not skip the others.
+  local status=0
   for ctx in "${CTXS[@]}"; do
     echo "fleet: $verb $(unit "$ctx" "$SVC")"
-    systemctl "$verb" "$(unit "$ctx" "$SVC")"
+    systemctl "$verb" "$(unit "$ctx" "$SVC")" || status=1
   done
+  return "$status"
 }
 
 # run <service>: runs a polled service once, now, and waits for it to end.
@@ -150,11 +153,13 @@ run() {
     pr-ready|agent-comments) ;;
     *) echo "usage: fleet run pr-ready|agent-comments" >&2; exit 1 ;;
   esac
+  local status=0
   for ctx in "${CTXS[@]}"; do
     job="fleet-$SVC-$ctx.service"
     echo "fleet: run $job"
-    systemctl start "$job"
+    systemctl start "$job" || status=1
   done
+  return "$status"
 }
 
 # The release series a tag belongs to: below 1.0 a minor bump can break
