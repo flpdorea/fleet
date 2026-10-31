@@ -25,7 +25,7 @@ fleet run pr-ready            # poll once, now
 fleet logs agent-comments -f  # its log, following what it writes next
 ```
 
-A polkit rule in `nix/module.nix` allows each context user to start, stop and restart its own context's units and nothing else. Each service logs to `/var/log/fleet/<service>-<ctx>.log`, readable by its context user and rotated weekly, which `fleet logs` shows.
+A polkit rule in `nix/module.nix` allows each context user to start, stop and restart its own context's units and nothing else. Each service logs to `/var/log/fleet/<service>-<ctx>.log`, readable by its context user, which `fleet logs` shows. All but Orca's are rotated weekly; Orca's keeps the pairing link that `fleet pair` reads.
 
 The `orca-cli` and `orchestration` skills are installed for each harness, so an agent can still drive Orca or other agents when you ask it to. `orca skills list` shows the Orca skills available.
 
@@ -117,7 +117,7 @@ You can also pick an older generation from the boot menu.
 
 | Symptom | Check | Fix |
 |---|---|---|
-| `fleet: this user is not a fleet context` | `systemctl status fleet-setup-<ctx>` | The setup service has not run or failed. `fleet logs setup --context <ctx>` as root shows why. |
+| `fleet: this user is not a fleet context` | `systemctl status fleet-setup-<ctx>` | The setup service has not run or failed. `fleet logs setup --context <ctx>` as root shows what the setup printed; `journalctl -u fleet-setup-<ctx>` shows why systemd did not run it. |
 | `fleet status` says Orca `no response` | `fleet services`, `fleet logs orca` | Usually Tailscale is down: `tailscale status`, then `tailscale up` as root. |
 | `fleet pair` prints no link | the log above | The server is still starting or failing. Restart it: `fleet restart orca`. |
 | Orca app shows the server as disconnected | Tailscale on your device | Both devices must be on the same tailnet. Update Orca on both sides if it reports an incompatible protocol. |

@@ -70,7 +70,7 @@ Machine-wide: `sshd`, `tailscaled`, the firewall, `ntfy-sh` (push notifications 
 | `/etc/fleet/contexts.json` | Context list read by the `fleet` command | The module |
 | `/etc/fleet/ntfy-url`, `/etc/fleet/ntfy-base-url` | Local and tailnet addresses of the ntfy server, read by `fleet notify` and `fleet pair` | The module |
 | `/home/<ctx>/fleet/` | `.context` and `.ready` markers read by `fleet`, and `.ntfy-topic`, the context's secret ntfy topic (mode 600) | `fleet-setup-<ctx>` |
-| `/var/log/fleet/<service>-<ctx>.log` | Each service's log (`orca`, `setup`, `pr-ready`, `agent-comments`), the Orca one with the pairing link; mode 600, owned by the user, rotated weekly | The services; read with `fleet logs` |
+| `/var/log/fleet/<service>-<ctx>.log` | Each service's log (`orca`, `setup`, `pr-ready`, `agent-comments`), the Orca one with the pairing link; mode 600, owned by the user; all but Orca's rotated weekly | The services; read with `fleet logs` |
 
 ## Version pinning
 

@@ -205,10 +205,12 @@ in
         });
       '') (builtins.attrNames contexts);
 
-      # Keeps the logs in /var/log/fleet from filling the disk. copytruncate,
-      # because Orca keeps its log open for as long as it runs.
+      # Keeps the services' logs in /var/log/fleet from filling the disk.
+      # Not Orca's: it prints its pairing link only when it starts, and
+      # `fleet pair` reads it there. copytruncate keeps each file's owner, so
+      # its context user can still read it.
       services.logrotate.settings.fleet = {
-        files = "/var/log/fleet/*.log";
+        files = map (svc: "/var/log/fleet/${svc}-*.log") [ "setup" "pr-ready" "agent-comments" ];
         frequency = "weekly";
         rotate = 4;
         compress = true;
