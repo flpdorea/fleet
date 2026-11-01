@@ -233,8 +233,9 @@ rebuild() {
     echo "fleet: $ref -> $target"
     sed -i "s|^\( *inputs\.fleet\.url = \"github:$repo/\).*\";$|\1$target\";|" "$flake"
   fi
-  local status=0 old rev start=$SECONDS took log error
+  local status=0 old rev start=$SECONDS took log error system still=""
   old=$(locked_rev)
+  system=$(readlink /run/current-system)
   log=$(mktemp)
   # shellcheck disable=SC2064 # $log is local, so expand it now
   trap "rm -f '$log'" EXIT
@@ -246,13 +247,15 @@ rebuild() {
   rev=$(locked_rev)
   took=$((SECONDS - start))
   if [ "$took" -ge 60 ]; then took="$((took / 60)) min"; else took="${took}s"; fi
-  if [ "$status" -eq 0 ]; then
-    if [ "$rev" = "$old" ]; then old="No new commits"; else old="From $old"; fi
-    announce "Deploy succeeded: $target ($rev)" "$old · took $took" 3 white_check_mark
+  if [ "$status" -eq 0 ] && [ "$rev" = "$old" ]; then
+    announce "Fleet is up to date" "The server still runs fleet $target ($rev); nothing new. Took $took." 3
+  elif [ "$status" -eq 0 ]; then
+    announce "Fleet updated" "The server now runs fleet $target ($rev), up from $old. Took $took." 3
   else
     error=$(grep -m1 -E '(^|[^[:alnum:]])error:' "$log" | sed 's/^[[:space:]]*//' | jq -Rr '.[:140]' || true)
-    announce "Deploy failed: $target ($rev)" "${error:+$error
-}Exit $status after $took; check it on the VPS." 4 x
+    # Only a failure before the switch leaves the old system running for sure.
+    [ "$(readlink /run/current-system)" = "$system" ] && still="Still on $old. "
+    announce "Fleet update failed" "$still${error:+$error }(exit $status after $took). Check the VPS." 4
   fi
   return "$status"
 }
