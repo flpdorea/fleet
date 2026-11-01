@@ -13,11 +13,12 @@
 
 ## How a request flows
 
-```
- Orca app on Mac/phone ──tailnet──▶ orca-serve-personal (port 6768, user personal)
-                                      ├─ worktree + terminal ─▶ claude agent  (Opus/Fable)
-                                      ├─ worktree + terminal ─▶ claude agent
-                                      └─ ...
+```mermaid
+flowchart LR
+    app["Orca app on Mac/phone"] -- tailnet --> serve["orca-serve-personal<br/>port 6768, user personal"]
+    serve -- "worktree + terminal" --> a1["claude agent<br/>Opus/Fable"]
+    serve -- "worktree + terminal" --> a2["claude agent"]
+    serve --> more["..."]
 ```
 
 The `work` context is the same picture with the `work` user, its own Claude account and port 6769.
