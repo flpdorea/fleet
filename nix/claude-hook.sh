@@ -148,47 +148,24 @@ browser_tab() {
   orca tab create --url "$url" "${wt[@]}" --json </dev/null
 }
 
-# owner/repo#N for a pull request's URL.
-pr_ref() {
-  local path=${1#https://github.com/}
-  echo "${path%/pull/*}#${path##*/}"
-}
-
 # A Bash command opened a Lavish board (a plan, an issue draft, an
-# escalation) or a pull request: open the board in Orca's browser and
-# notify with its link. lavish-axi prints the session's Tailscale URL; gh
-# prints the URL of each PR it creates.
+# escalation): open it in Orca's browser and notify with its link.
+# lavish-axi prints the session's Tailscale URL. Pull requests notify from
+# fleet-pr-ready instead, once their checks are green.
 bash_tool() {
-  local cmd out url file title detail pr
+  local cmd out url file title
   local run='(^|[;&|(]|&&)[[:space:]]*'
   cmd=$(field .tool_input.command)
+  [[ $cmd =~ ${run}(npx[[:space:]]+(-y[[:space:]]+)?)?lavish-axi[[:space:]] ]] || return 0
   out=$(jq -r '[.tool_response.stdout, .tool_response.stderr] | map(select(.)) | join("\n")' <<<"$input")
-  if [[ $cmd =~ ${run}(npx[[:space:]]+(-y[[:space:]]+)?)?lavish-axi[[:space:]] ]]; then
-    grep -qE '^ *status: (opened|reopened|ready)$' <<<"$out" || return 0
-    url=$(sed -n 's/^ *url: "\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' <<<"$out" | head -1)
-    file=$(sed -n 's/^ *file: "\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' <<<"$out" | head -1)
-    [ -n "$url" ] || return 0
-    browser_tab "$url"
-    title=$(sed -n 's:.*<title>\([^<]*\)</title>.*:\1:p' "$file" 2>/dev/null | head -1)
-    fleet notify "Review: ${title:-$(basename "$file" .html)}" "Waiting for your feedback
+  grep -qE '^ *status: (opened|reopened|ready)$' <<<"$out" || return 0
+  url=$(sed -n 's/^ *url: "\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' <<<"$out" | head -1)
+  file=$(sed -n 's/^ *file: "\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' <<<"$out" | head -1)
+  [ -n "$url" ] || return 0
+  browser_tab "$url"
+  title=$(sed -n 's:.*<title>\([^<]*\)</title>.*:\1:p' "$file" 2>/dev/null | head -1)
+  fleet notify "Review: ${title:-$(basename "$file" .html)}" "Waiting for your feedback
 $(where)" --url "$url" --priority high
-  elif [[ $cmd =~ ${run}gh[[:space:]]+(pr[[:space:]]+create|stack[[:space:]]+submit) ]]; then
-    mkdir -p "$state"
-    # Parallel hooks must not both notify the same PR.
-    exec 9>>"$state/prs"
-    flock 9
-    while read -r pr; do
-      [ -n "$pr" ] || continue
-      grep -qxF "$pr" "$state/prs" && continue
-      echo "$pr" >>"$state/prs"
-      title="" detail=""
-      { IFS= read -r title; IFS= read -r detail; } < <(timeout 10 gh pr view "$pr" \
-        --json title,isDraft,baseRefName,additions,deletions,changedFiles -q '.title,
-          "\(if .isDraft then "Draft" else "Open" end) into \(.baseRefName) · +\(.additions) −\(.deletions) in \(.changedFiles) files"' </dev/null) || true
-      fleet notify "PR opened: ${title:-$pr}" "${detail:+$detail
-}$(pr_ref "$pr")" --url "$pr" </dev/null
-    done < <(grep -oE 'https://github\.com/[^/ ]+/[^/ ]+/pull/[0-9]+' <<<"$out" | sort -u)
-  fi
 }
 
 case "${1:-}" in

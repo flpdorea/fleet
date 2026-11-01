@@ -24,14 +24,15 @@ let
   # Orca's browser (homes/claude-settings.json).
   claudeHook = pkgs.writeShellApplication {
     name = "fleet-claude-hook";
-    runtimeInputs = (with pkgs; [ coreutils findutils gnugrep gnused util-linux jq git gh ]) ++ [ fleetCli agents.orca ];
+    runtimeInputs = (with pkgs; [ coreutils findutils gnugrep gnused util-linux jq git ]) ++ [ fleetCli agents.orca ];
     text = builtins.readFile ./claude-hook.sh;
   };
 
-  # Notifies the phone when a pull request is ready to merge (fleet-pr-ready-<ctx>).
+  # Notifies the phone at each step of a pull request where you act next
+  # (fleet-pr-ready-<ctx>).
   prReady = pkgs.writeShellApplication {
     name = "fleet-pr-ready";
-    runtimeInputs = (with pkgs; [ coreutils gnugrep gh ]) ++ [ fleetCli ];
+    runtimeInputs = (with pkgs; [ coreutils gnugrep jq gh ]) ++ [ fleetCli ];
     text = builtins.readFile ./pr-ready.sh;
   };
 
@@ -354,10 +355,10 @@ in
           };
         };
 
-        # Polls GitHub for the context's pull requests that are ready to
-        # merge and notifies the phone (nix/pr-ready.sh).
+        # Polls GitHub for the steps of the context's pull requests where you
+        # act next and notifies the phone (nix/pr-ready.sh).
         "fleet-pr-ready-${ctx}" = {
-          description = "fleet: notify ${ctx}'s pull requests ready to merge";
+          description = "fleet: notify the steps of ${ctx}'s pull requests";
           wants = [ "network-online.target" ];
           after = [ "network-online.target" "fleet-setup-${ctx}.service" ];
           serviceConfig = {
