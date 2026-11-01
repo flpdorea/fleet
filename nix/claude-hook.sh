@@ -41,18 +41,59 @@ where() {
 # prompt that follows a minute later does not notify a second time.
 marker() { echo "$state/$(field .session_id | tr -cd 'A-Za-z0-9-')"; }
 
-# Permission, question and idle prompts: the agent is waiting for you.
+# Markdown as one line of plain text, cut at a word to 140 characters, for
+# a notification body that still reads with the notification collapsed.
+shorten() {
+  jq -Rrs '
+    gsub("(?m)^[ \t]*(```|#)[^\n]*"; "") | gsub("(?m)^[ \t]*([-*+]|[0-9]+\\.|>)[ \t]+"; "")
+    | gsub("\\[(?<t>[^]]*)\\]\\([^)]*\\)"; "\(.t)") | gsub("\\*\\*|__|`"; "")
+    | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ")
+    | if length <= 140 then . else .[:140] | sub(" [^ ]*$"; "") + "…" end'
+}
+
+# Masks what looks like a secret in a command, since the notification shows
+# on the lock screen.
+redact() {
+  sed -E "s/((token|secret|passw(or)?d|api[_-]?key|authorization)[^[:space:]=:]*[[:space:]=:]+(bearer[[:space:]]+)?)[^[:space:]\"']+/\1[hidden]/Ig
+    s/(gh[pousr]_|github_pat_|sk-)[A-Za-z0-9_-]+/\1[hidden]/g"
+}
+
+# The tool call the agent waits on, {name, input}: the last tool_use in the
+# transcript without a tool_result yet.
+pending_tool() {
+  jq -cs '
+    [ .[] | .message.content? | arrays | .[] ] as $c
+    | [ $c[] | select(.type == "tool_result") | .tool_use_id ] as $done
+    | [ $c[] | select(.type == "tool_use" and (.id | IN($done[]) | not)) ] | last // empty' "$(field .transcript_path)"
+}
+
+# Permission, question and idle prompts: the agent is waiting for you. The
+# body says what for: the command to allow, the question, or what the agent
+# said last.
 notification() {
-  local title priority=default
+  local title detail="" tag priority=high tool=""
   case "$(field .notification_type)" in
-    permission_prompt)  title="Needs your permission"; priority=high ;;
-    elicitation_dialog) title="Question for you"; priority=high ;;
+    permission_prompt)
+      tool=$(pending_tool) || tool=""
+      if [ -z "$tool" ]; then
+        title="Needs your permission"; tag=lock
+      elif [ "$(jq -r .name <<<"$tool")" = AskUserQuestion ]; then
+        title="Question: $(jq -r '.input.questions[0].header // "for you"' <<<"$tool")"
+        detail=$(jq -r '.input.questions[0] | "\(.question) (\(.options | length) options)"' <<<"$tool")
+        tag=question
+      else
+        title="Permission: $(jq -r '.name | sub("^mcp__"; "")' <<<"$tool")"
+        detail=$(jq -r '.input | .command // .file_path // .url // .pattern // .query // tojson' <<<"$tool" | redact)
+        tag=lock
+      fi ;;
+    elicitation_dialog) title="Question for you"; tag=question ;;
     idle_prompt)
       if [ -n "$(find "$(marker)" -mmin -5 2>/dev/null)" ]; then rm -f "$(marker)"; return; fi
-      title="Waiting for you" ;;
+      title="Waiting for you"; detail=$(last_message); tag=hourglass_flowing_sand; priority=default ;;
     *) return ;;
   esac
-  fleet notify "$title" "$(where): $(field .message)" --priority "$priority"
+  fleet notify "$title" "$(shorten <<<"${detail:-$(field .message)}")
+$(where)" --priority "$priority" --tag "$tag"
 }
 
 # Seconds since the last prompt you typed, read from the transcript.
@@ -73,7 +114,7 @@ last_message() {
   [ -n "$text" ] || text=$(jq -rs '
     [ .[] | select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text ]
     | last // empty' "$(field .transcript_path)")
-  tr -s '[:space:]' ' ' <<<"${text:-Finished.}" | sed 's/ $//' | cut -c1-240
+  echo "${text:-Finished.}"
 }
 
 # A long task finished: notify with a summary of the agent's last message.
@@ -82,7 +123,7 @@ stop() {
   [ "$(field .stop_hook_active)" = true ] && return
   took=$(elapsed) || return
   [ "$took" -ge "$long_task" ] || return
-  fleet notify "Done in $(where) ($((took / 60)) min)" "$(last_message)"
+  fleet notify "Done: $(where) ($((took / 60)) min)" "$(last_message | shorten)" --tag checkered_flag
   mkdir -p "$state" && touch "$(marker)"
 }
 
