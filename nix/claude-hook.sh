@@ -41,30 +41,40 @@ where() {
 # prompt that follows a minute later does not notify a second time.
 marker() { echo "$state/$(field .session_id | tr -cd 'A-Za-z0-9-')"; }
 
-# Markdown as one line of plain text, cut at a word to 140 characters, for
-# a notification body that still reads with the notification collapsed.
+# Markdown as one line of plain text, secrets masked and cut at a word to 140
+# characters, for a body that reads on the lock screen with the notification
+# collapsed. Headings go, unless there is nothing else.
 shorten() {
-  jq -Rrs '
-    gsub("(?m)^[ \t]*(```|#)[^\n]*"; "") | gsub("(?m)^[ \t]*([-*+]|[0-9]+\\.|>)[ \t]+"; "")
-    | gsub("\\[(?<t>[^]]*)\\]\\([^)]*\\)"; "\(.t)") | gsub("\\*\\*|__|`"; "")
-    | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ")
+  redact | jq -Rrs '
+    def plain(drop): (if drop then gsub("(?m)^[ \t]*#+[ \t][^\n]*"; "") else . end)
+      | gsub("(?m)^[ \t]*```[^\n]*"; "") | gsub("(?m)^[ \t]*(#+|[-*+]|[0-9]+\\.|>)[ \t]+"; "")
+      | gsub("\\[(?<t>[^]]*)\\]\\([^)]*\\)"; "\(.t)") | gsub("\\*\\*|__|`"; "")
+      | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ");
+    (plain(true) | select(. != "")) // plain(false)
     | if length <= 140 then . else .[:140] | sub(" [^ ]*$"; "") + "…" end'
 }
 
-# Masks what looks like a secret in a command, since the notification shows
-# on the lock screen.
+# Masks what looks like a secret: a value after a key, flag or URL user
+# that names one, and tokens with a known prefix.
 redact() {
-  sed -E "s/((token|secret|passw(or)?d|api[_-]?key|authorization)[^[:space:]=:]*[[:space:]=:]+(bearer[[:space:]]+)?)[^[:space:]\"']+/\1[hidden]/Ig
-    s/(gh[pousr]_|github_pat_|sk-)[A-Za-z0-9_-]+/\1[hidden]/g"
+  sed -E "s/((token|secret|passw(or)?d|api[_-]?key|authorization|credential)[[:alnum:]_-]*[\"']?[[:space:]]*[=:][[:space:]]*(bearer[[:space:]]+)?)(\"[^\"]*\"|'[^']*'|[^[:space:]\"',;]+)/\1[hidden]/Ig
+    s/(--?[[:alnum:]-]*(token|secret|passw(or)?d|key)[[:alnum:]-]*[[:space:]]+)(\"[^\"]*\"|'[^']*'|[^[:space:]\"'-][^[:space:]\"']*)/\1[hidden]/Ig
+    s#(://[^/:@[:space:]]+:)[^/@[:space:]]+@#\1[hidden]@#g
+    s/(^|[[:space:]])(-u[[:space:]]*[^[:space:]:]+:)[^[:space:]]+/\1\2[hidden]/g
+    s/(gh[pousr]_|github_pat_|glpat-|xox[abpr]-|sk-|AKIA)[[:alnum:]_-]+/\1[hidden]/g
+    s/eyJ[[:alnum:]_-]+\.[[:alnum:]._-]+/[hidden]/g"
 }
 
-# The tool call the agent waits on, {name, input}: the last tool_use in the
-# transcript without a tool_result yet.
+# The tool call the agent waits on, {name, input}: the one tool_use in the
+# transcript without a tool_result yet. Unknown when several are pending
+# (parallel calls) or the pending one is a subagent, whose calls go to its
+# own transcript.
 pending_tool() {
   jq -cs '
     [ .[] | .message.content? | arrays | .[] ] as $c
     | [ $c[] | select(.type == "tool_result") | .tool_use_id ] as $done
-    | [ $c[] | select(.type == "tool_use" and (.id | IN($done[]) | not)) ] | last // empty' "$(field .transcript_path)"
+    | [ $c[] | select(.type == "tool_use" and (.id | IN($done[]) | not)) ]
+    | if length == 1 and (.[0].name | IN("Agent", "Task") | not) then .[0] else empty end' "$(field .transcript_path)"
 }
 
 # Permission, question and idle prompts: the agent is waiting for you. The
@@ -83,7 +93,7 @@ notification() {
         tag=question
       else
         title="Permission: $(jq -r '.name | sub("^mcp__"; "")' <<<"$tool")"
-        detail=$(jq -r '.input | .command // .file_path // .url // .pattern // .query // tojson' <<<"$tool" | redact)
+        detail=$(jq -r '.input | .command // .file_path // .url // .pattern // .query // empty' <<<"$tool")
         tag=lock
       fi ;;
     elicitation_dialog) title="Question for you"; tag=question ;;
@@ -119,11 +129,12 @@ last_message() {
 
 # A long task finished: notify with a summary of the agent's last message.
 stop() {
-  local took
+  local took body
   [ "$(field .stop_hook_active)" = true ] && return
   took=$(elapsed) || return
   [ "$took" -ge "$long_task" ] || return
-  fleet notify "Done: $(where) ($((took / 60)) min)" "$(last_message | shorten)" --tag checkered_flag
+  body=$(last_message | shorten)
+  fleet notify "Done: $(where) ($((took / 60)) min)" "${body:-Finished.}" --tag checkered_flag
   mkdir -p "$state" && touch "$(marker)"
 }
 
