@@ -171,7 +171,7 @@ bash_tool() {
     browser_tab "$url"
     title=$(sed -n 's:.*<title>\([^<]*\)</title>.*:\1:p' "$file" 2>/dev/null | head -1)
     fleet notify "Review: ${title:-$(basename "$file" .html)}" "Waiting for your feedback
-$(where)" --url "$url" --priority high --tag memo
+$(where)" --url "$url" --priority high
   elif [[ $cmd =~ ${run}gh[[:space:]]+(pr[[:space:]]+create|stack[[:space:]]+submit) ]]; then
     mkdir -p "$state"
     # Parallel hooks must not both notify the same PR.
@@ -186,7 +186,7 @@ $(where)" --url "$url" --priority high --tag memo
         --json title,isDraft,baseRefName,additions,deletions,changedFiles -q '.title,
           "\(if .isDraft then "Draft" else "Open" end) into \(.baseRefName) · +\(.additions) −\(.deletions) in \(.changedFiles) files"' </dev/null) || true
       fleet notify "PR opened: ${title:-$pr}" "${detail:+$detail
-}$(pr_ref "$pr")" --url "$pr" --tag package </dev/null
+}$(pr_ref "$pr")" --url "$pr" </dev/null
     done < <(grep -oE 'https://github\.com/[^/ ]+/[^/ ]+/pull/[0-9]+' <<<"$out" | sort -u)
   fi
 }

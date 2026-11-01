@@ -56,7 +56,7 @@ while IFS=$'\t' read -r url sha status why title; do
     [ "$status" = no ] || printf '%s %s\n' "$url" "$sha" >>"$keep"
   elif [ "$status" = ready ] && { $first ||
     fleet notify "Ready to merge: $title" "$why
-${path%/pull/*}#${path##*/}" --url "$url" --tag rocket; }; then
+${path%/pull/*}#${path##*/}" --url "$url"; }; then
     printf '%s %s\n' "$url" "$sha" >>"$keep"
   fi
 done <<<"$ready"
