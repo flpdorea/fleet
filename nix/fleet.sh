@@ -233,15 +233,32 @@ rebuild() {
     echo "fleet: $ref -> $target"
     sed -i "s|^\( *inputs\.fleet\.url = \"github:$repo/\).*\";$|\1$target\";|" "$flake"
   fi
-  local status=0 rev
-  { nix flake update fleet --flake /etc/nixos && nixos-rebuild switch --flake /etc/nixos#fleet "$@"; } || status=$?
-  rev=$(jq -r '.nodes.fleet.locked.rev // "?" | .[0:7]' /etc/nixos/flake.lock 2>/dev/null || echo "?")
+  local status=0 old rev start=$SECONDS took log error
+  old=$(locked_rev)
+  log=$(mktemp)
+  # Errors still reach the terminal; the copy in $log gives the notification
+  # of a failed rebuild its first error line.
+  { nix flake update fleet --flake /etc/nixos && nixos-rebuild switch --flake /etc/nixos#fleet "$@"; } \
+    2> >(tee "$log" >&2) || status=$?
+  wait "$!" || true
+  rev=$(locked_rev)
+  took=$((SECONDS - start))
+  if [ "$took" -ge 60 ]; then took="$((took / 60)) min"; else took="${took}s"; fi
   if [ "$status" -eq 0 ]; then
-    announce "Deploy succeeded" "fleet $target ($rev) is live." 3
+    if [ "$rev" = "$old" ]; then old="No new commits"; else old="From $old"; fi
+    announce "Deploy succeeded: $target ($rev)" "$old · took $took" 3 white_check_mark
   else
-    announce "Deploy failed" "fleet rebuild to $target ($rev) exited with $status; check it on the VPS." 4
+    error=$(grep -m1 -E '(^|[^[:alnum:]])error:' "$log" | sed 's/^[[:space:]]*//' | cut -c1-140 || true)
+    announce "Deploy failed: $target ($rev)" "${error:+$error
+}Exit $status after $took; check it on the VPS." 4 x
   fi
+  rm -f "$log"
   return "$status"
+}
+
+# The fleet commit /etc/nixos/flake.lock pins, shortened.
+locked_rev() {
+  jq -r '.nodes.fleet.locked.rev // "?" | .[0:7]' /etc/nixos/flake.lock 2>/dev/null || echo "?"
 }
 
 # Tells every context's phone how a rebuild went. Best effort: a notifier
