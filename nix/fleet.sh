@@ -247,10 +247,13 @@ rebuild() {
   rev=$(locked_rev)
   took=$((SECONDS - start))
   if [ "$took" -ge 60 ]; then took="$((took / 60)) min"; else took="${took}s"; fi
-  if [ "$status" -eq 0 ] && [ "$rev" = "$old" ]; then
-    announce "Fleet is up to date" "The server still runs fleet $target ($rev); nothing new. Took $took." 3
-  elif [ "$status" -eq 0 ]; then
+  if [ "$status" -eq 0 ] && [ "$rev" != "$old" ]; then
     announce "Fleet updated" "The server now runs fleet $target ($rev), up from $old. Took $took." 3
+  elif [ "$status" -eq 0 ] && [ "$(readlink /run/current-system)" != "$system" ]; then
+    # The same fleet commit, with a changed /etc/nixos (a context, a setting).
+    announce "Fleet updated" "The server runs a new configuration of fleet $target ($rev). Took $took." 3
+  elif [ "$status" -eq 0 ]; then
+    announce "Fleet is up to date" "The server still runs fleet $target ($rev); nothing new. Took $took." 3
   else
     error=$(grep -m1 -E '(^|[^[:alnum:]])error:' "$log" | sed 's/^[[:space:]]*//' | jq -Rr '.[:140]' || true)
     # Only a failure before the switch leaves the old system running for sure.

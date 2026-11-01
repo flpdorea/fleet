@@ -52,7 +52,7 @@ Within a minute, `fleet-agent-comments-<ctx>` starts the context's agent in a ne
    fleet rebuild
    ```
 
-`fleet rebuild` updates the machine's `fleet` input and switches to it: to the latest release, or to the latest commit when the machine follows a branch (see [Releases](#releases)). `fleet-setup-<ctx>` reruns when the repo or Orca changed, so each harness gets fresh Orca skills. When it ends, every context's phone gets a notification: "Fleet updated" with the release or branch and commit now live, the commit it replaced and how long it took ("Fleet is up to date" when nothing changed), or "Fleet update failed" with its first error line, exit code and duration, saying the server is still on the previous commit when the switch never happened (see [Notifications on the phone](installation.md#notifications-on-the-phone)).
+`fleet rebuild` updates the machine's `fleet` input and switches to it: to the latest release, or to the latest commit when the machine follows a branch (see [Releases](#releases)). `fleet-setup-<ctx>` reruns when the repo or Orca changed, so each harness gets fresh Orca skills. When it ends, every context's phone gets a notification: "Fleet updated" with the release or branch and commit now live, the commit it replaced and how long it took (or that it runs a new configuration, after a change to `/etc/nixos`; "Fleet is up to date" when nothing changed), or "Fleet update failed" with its first error line, exit code and duration, saying the server is still on the previous commit when the switch never happened (see [Notifications on the phone](installation.md#notifications-on-the-phone)).
 
 ### Versions (NixOS, Orca, Pi, Claude Code)
 
