@@ -15,14 +15,14 @@ first=false
 
 gh auth status >/dev/null 2>&1 || exit 0
 
-# shellcheck disable=SC2016 # $checks and $status are jq variables
+# shellcheck disable=SC2016 # $checks, $status and $why are jq variables
 ready=$(gh api graphql -f query='
   query {
     search(query: "is:pr is:open author:@me archived:false", type: ISSUE, first: 50) {
       nodes {
         ... on PullRequest {
-          url title headRefOid mergeable reviewDecision
-          commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+          url title headRefOid mergeable reviewDecision isDraft
+          commits(last: 1) { nodes { commit { statusCheckRollup { state contexts { totalCount } } } } }
           reviewThreads(first: 100) { nodes { isResolved } }
         }
       }
@@ -35,19 +35,25 @@ ready=$(gh api graphql -f query='
         or any(.reviewThreads.nodes[]; .isResolved | not) then "no"
      elif .mergeable == "UNKNOWN" or ($checks | IN("PENDING", "EXPECTED")) then "pending"
      else "ready" end) as $status
-  | [.url, .headRefOid, $status, .title] | @tsv') || exit 0
+  | (.commits.nodes[0].commit.statusCheckRollup.contexts.totalCount // 0) as $count
+  | [ if $count == 0 then "no checks" elif $count == 1 then "1 check green" else "\($count) checks green" end,
+      (if .reviewDecision == "APPROVED" then "approved" else empty end),
+      (if .isDraft then "draft" else empty end) ] as $why
+  | [.url, .headRefOid, $status, ($why | join(" · ")), .title] | @tsv') || exit 0
 
 # Forget PRs that are no longer ready, so a PR that turns red and then
 # green again on the same commit notifies again. GitHub recomputes
 # mergeability after the base moves (UNKNOWN for a while) and reruns checks
 # (PENDING); those keep what was recorded, so they do not notify twice.
 keep=$(mktemp)
-while IFS=$'\t' read -r url sha status title; do
+while IFS=$'\t' read -r url sha status why title; do
   [ -n "$url" ] || continue
+  path=${url#https://github.com/}
   if grep -qxsF "$url $sha" "$seen"; then
     [ "$status" = no ] || printf '%s %s\n' "$url" "$sha" >>"$keep"
   elif [ "$status" = ready ] && { $first ||
-    fleet notify "Ready to merge: $title" "${url#https://github.com/}" --url "$url"; }; then
+    fleet notify "Ready to merge: $title" "$why
+${path%/pull/*}#${path##*/}" --url "$url" --tag rocket; }; then
     printf '%s %s\n' "$url" "$sha" >>"$keep"
   fi
 done <<<"$ready"
