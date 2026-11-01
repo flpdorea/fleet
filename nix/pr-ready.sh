@@ -22,7 +22,8 @@ ready=$(gh api graphql -f query='
       nodes {
         ... on PullRequest {
           url title headRefOid mergeable reviewDecision isDraft
-          commits(last: 1) { nodes { commit { statusCheckRollup { state contexts { totalCount } } } } }
+          commits(last: 1) { nodes { commit { statusCheckRollup { state
+            contexts(first: 100) { nodes { ... on CheckRun { conclusion } ... on StatusContext { state } } } } } } }
           reviewThreads(first: 100) { nodes { isResolved } }
         }
       }
@@ -35,7 +36,9 @@ ready=$(gh api graphql -f query='
         or any(.reviewThreads.nodes[]; .isResolved | not) then "no"
      elif .mergeable == "UNKNOWN" or ($checks | IN("PENDING", "EXPECTED")) then "pending"
      else "ready" end) as $status
-  | (.commits.nodes[0].commit.statusCheckRollup.contexts.totalCount // 0) as $count
+  # Skipped and neutral checks do not count as green.
+  | ([.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+      | select((.conclusion // .state) == "SUCCESS")] | length) as $count
   | [ if $count == 0 then "no checks" elif $count == 1 then "1 check green" else "\($count) checks green" end,
       (if .reviewDecision == "APPROVED" then "approved" else empty end),
       (if .isDraft then "draft" else empty end) ] as $why
