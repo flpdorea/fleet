@@ -13,7 +13,6 @@ As a context user (personal, work):
   status    show whether setup ran and whether the Orca server is ready
   notify    push a notification to the phone: <title> <message>
             [--url <link>] [--priority min|low|default|high|max]
-            [--tag <emoji shortcode, shown before the title>]
 
 Services (orca, setup, pr-ready, agent-comments) of your context, or as root
 of every context, or of the one given with --context <ctx>:
@@ -251,7 +250,7 @@ announce() {
   local ctx topic
   for ctx in $(jq -r 'keys[]' /etc/fleet/contexts.json 2>/dev/null); do
     topic=$(cat "/home/$ctx/fleet/.ntfy-topic" 2>/dev/null) || continue
-    publish "$topic" "$1" "$2" "" "$3" "${4:-}" || true
+    publish "$topic" "$1" "$2" "" "$3" || true
   done
 }
 
@@ -322,13 +321,12 @@ status() {
 # Pushes a notification to this context's secret ntfy topic, which the phone
 # subscribes to. Hooks and scripts call it, never the agents themselves.
 notify() {
-  local title="" message="" url="" priority=3 tag=""
-  local use="usage: fleet notify <title> <message> [--url <link>] [--priority <p>] [--tag <shortcode>]"
+  local title="" message="" url="" priority=3
+  local use="usage: fleet notify <title> <message> [--url <link>] [--priority <p>]"
   while [ $# -gt 0 ]; do
     case "$1" in
       --url)      url=${2:?$use}; shift 2 ;;
       --priority) priority=${2:?$use}; shift 2 ;;
-      --tag)      tag=${2:?$use}; shift 2 ;;
       *)
         if [ -z "$title" ]; then title=$1; elif [ -z "$message" ]; then message=$1
         else echo "fleet notify: unexpected argument: $1" >&2; exit 1; fi
@@ -344,19 +342,16 @@ notify() {
   esac
   local topic
   topic=$(cat "$FLEET/.ntfy-topic") || { echo "fleet notify: no ntfy topic yet (systemctl status fleet-setup-$CTX)" >&2; exit 1; }
-  publish "$topic" "$title" "$message" "$url" "$priority" "$tag"
+  publish "$topic" "$title" "$message" "$url" "$priority"
 }
 
-# publish <topic> <title> <message> <click url or ""> <priority 1-5> [tag]
-# The ntfy app shows a tag that names an emoji (lock, rocket) as that emoji
-# before the title.
+# publish <topic> <title> <message> <click url or ""> <priority 1-5>
 publish() {
-  local topic=$1 title=$2 message=$3 url=$4 priority=$5 tag=${6:-} body
+  local topic=$1 title=$2 message=$3 url=$4 priority=$5 body
   body=$(jq -n --arg topic "$topic" --arg title "$title" --arg message "$message" \
-    --arg click "$url" --argjson priority "$priority" --arg tag "$tag" \
+    --arg click "$url" --argjson priority "$priority" \
     '{topic: $topic, title: $title, message: $message, priority: $priority}
-     + (if $click == "" then {} else {click: $click} end)
-     + (if $tag == "" then {} else {tags: [$tag]} end)')
+     + (if $click == "" then {} else {click: $click} end)')
   curl -fsS --max-time 10 --retry 2 --retry-connrefused -o /dev/null -H 'Content-Type: application/json' \
     -d "$body" "$(cat /etc/fleet/ntfy-url)"
 }

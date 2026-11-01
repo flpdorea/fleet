@@ -81,29 +81,27 @@ pending_tool() {
 # body says what for: the command to allow, the question, or what the agent
 # said last.
 notification() {
-  local title detail="" tag priority=high tool=""
+  local title detail="" priority=high tool=""
   case "$(field .notification_type)" in
     permission_prompt)
       tool=$(pending_tool) || tool=""
       if [ -z "$tool" ]; then
-        title="Needs your permission"; tag=lock
+        title="Needs your permission"
       elif [ "$(jq -r .name <<<"$tool")" = AskUserQuestion ]; then
         title="Question: $(jq -r '.input.questions[0].header // "for you"' <<<"$tool")"
         detail=$(jq -r '.input.questions[0] | "\(.question) (\(.options | length) options)"' <<<"$tool")
-        tag=question
       else
         title="Permission: $(jq -r '.name | sub("^mcp__"; "")' <<<"$tool")"
         detail=$(jq -r '.input | .command // .file_path // .url // .pattern // .query // empty' <<<"$tool")
-        tag=lock
       fi ;;
-    elicitation_dialog) title="Question for you"; tag=question ;;
+    elicitation_dialog) title="Question for you" ;;
     idle_prompt)
       if [ -n "$(find "$(marker)" -mmin -5 2>/dev/null)" ]; then rm -f "$(marker)"; return; fi
-      title="Waiting for you"; detail=$(last_message); tag=hourglass_flowing_sand; priority=default ;;
+      title="Waiting for you"; detail=$(last_message); priority=default ;;
     *) return ;;
   esac
   fleet notify "$title" "$(shorten <<<"${detail:-$(field .message)}")
-$(where)" --priority "$priority" --tag "$tag"
+$(where)" --priority "$priority"
 }
 
 # Seconds since the last prompt you typed, read from the transcript.
@@ -134,7 +132,7 @@ stop() {
   took=$(elapsed) || return
   [ "$took" -ge "$long_task" ] || return
   body=$(last_message | shorten)
-  fleet notify "Done: $(where) ($((took / 60)) min)" "${body:-Finished.}" --tag checkered_flag
+  fleet notify "Done: $(where) ($((took / 60)) min)" "${body:-Finished.}"
   mkdir -p "$state" && touch "$(marker)"
 }
 
