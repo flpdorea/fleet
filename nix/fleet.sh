@@ -236,6 +236,8 @@ rebuild() {
   local status=0 old rev start=$SECONDS took log error
   old=$(locked_rev)
   log=$(mktemp)
+  # shellcheck disable=SC2064 # $log is local, so expand it now
+  trap "rm -f '$log'" EXIT
   # Errors still reach the terminal; the copy in $log gives the notification
   # of a failed rebuild its first error line.
   { nix flake update fleet --flake /etc/nixos && nixos-rebuild switch --flake /etc/nixos#fleet "$@"; } \
@@ -248,11 +250,10 @@ rebuild() {
     if [ "$rev" = "$old" ]; then old="No new commits"; else old="From $old"; fi
     announce "Deploy succeeded: $target ($rev)" "$old · took $took" 3 white_check_mark
   else
-    error=$(grep -m1 -E '(^|[^[:alnum:]])error:' "$log" | sed 's/^[[:space:]]*//' | cut -c1-140 || true)
+    error=$(grep -m1 -E '(^|[^[:alnum:]])error:' "$log" | sed 's/^[[:space:]]*//' | jq -Rr '.[:140]' || true)
     announce "Deploy failed: $target ($rev)" "${error:+$error
 }Exit $status after $took; check it on the VPS." 4 x
   fi
-  rm -f "$log"
   return "$status"
 }
 
