@@ -50,7 +50,7 @@ Either way, state the PR link, the failing check or comment, what you found, wha
 - Don't merge the PR or mark a draft ready for review unless the user asked.
 - Don't mark someone else's review thread resolved without having addressed it.
 - Don't bypass checks: no `[skip ci]`, no disabling tests, no `--admin` merges.
-- Don't keep polling once there is nothing left to wait for; reviews that arrive after you finish are the user's to bring back.
+- Don't keep polling once there is nothing left to wait for; reviews that arrive after you finish start a new agent with the `pr-review` skill, through the `fleet-pr-reviews` timer.
 
 ## Report
 

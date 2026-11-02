@@ -14,18 +14,18 @@ As a context user (personal, work):
   notify    push a notification to the phone: <title> <message>
             [--url <link>] [--priority min|low|default|high|max]
 
-Services (orca, setup, pr-ready, agent-comments) of your context, or as root
+Services (orca, setup, pr-ready, agent-comments, pr-reviews) of your context, or as root
 of every context, or of the one given with --context <ctx>:
-  services           list them: state, and for pr-ready and agent-comments
+  services           list them: state, and for the polled ones
                      the last and next runs
-  start <service>    start it; for pr-ready and agent-comments, resume polling
-  stop <service>     stop it; for pr-ready and agent-comments, pause polling
+  start <service>    start it; for the polled ones, resume polling
+  stop <service>     stop it; for the polled ones, pause polling
                      until the next boot or fleet rebuild
                      (fleet.disabledServices in /etc/nixos/fleet.nix turns it
                      off for good)
   restart <service>  restart it; restarting orca kills the agents running in
                      it, so it asks first (--force does not)
-  run <service>      run pr-ready or agent-comments once, now
+  run <service>      run pr-ready, agent-comments or pr-reviews once, now
   logs <service>     show the end of its log
                      [-n <lines>] [-f to follow what it writes next]
 
@@ -51,7 +51,7 @@ context() {
 }
 
 # The services a context runs, by the names fleet takes for them.
-SERVICES="orca setup pr-ready agent-comments"
+SERVICES="orca setup pr-ready agent-comments pr-reviews"
 
 # unit <ctx> <service>: the systemd unit fleet acts on for a service. The
 # polled services act on their timer, so stopping one pauses the polling.
@@ -59,7 +59,7 @@ unit() {
   case "$2" in
     orca)  echo "orca-serve-$1.service" ;;
     setup) echo "fleet-setup-$1.service" ;;
-    pr-ready|agent-comments) echo "fleet-$2-$1.timer" ;;
+    pr-ready|agent-comments|pr-reviews) echo "fleet-$2-$1.timer" ;;
     *) echo "fleet: unknown service: $2 (one of: $SERVICES)" >&2; return 1 ;;
   esac
 }
@@ -118,6 +118,7 @@ services() {
           else detail="never ran"; fi
           [ "$next" -eq 0 ] || detail+=", next $(date -d "@$((next / 1000000))" '+%a %F %T %Z')"
           [ "$state" != off ] || detail="turned off in fleet.disabledServices"
+          [ "$state" != off ] || [ "$svc" != pr-reviews ] || detail+=", or not a Claude context"
           ;;
         *)
           detail="$(systemctl show -P SubState "$u") since $(systemctl show -P StateChangeTimestamp "$u")"
@@ -161,8 +162,8 @@ run() {
   local ctx job
   targets "$@"
   case "$SVC" in
-    pr-ready|agent-comments) ;;
-    *) echo "usage: fleet run pr-ready|agent-comments" >&2; exit 1 ;;
+    pr-ready|agent-comments|pr-reviews) ;;
+    *) echo "usage: fleet run pr-ready|agent-comments|pr-reviews" >&2; exit 1 ;;
   esac
   local status=0
   for ctx in "${CTXS[@]}"; do

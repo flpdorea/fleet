@@ -14,7 +14,7 @@ fleet services          # the context's services, and when the polled ones run n
 
 ### Managing the services
 
-Each context runs four services, which `fleet` names `orca` (the Orca server), `setup` (`fleet-setup-<ctx>`), `pr-ready` and `agent-comments` (the last two poll GitHub on a timer). A context user manages its own context's services, without sudo; root manages every context's, or one with `--context <ctx>`:
+Each context runs five services, which `fleet` names `orca` (the Orca server), `setup` (`fleet-setup-<ctx>`), `pr-ready`, `agent-comments` and `pr-reviews` (the last three poll GitHub on a timer; `pr-reviews` only in Claude contexts). A context user manages its own context's services, without sudo; root manages every context's, or one with `--context <ctx>`:
 
 ```bash
 fleet restart orca            # asks first: it kills the agents running in Orca
@@ -40,6 +40,12 @@ Keep the old flag working for one more release.
 ```
 
 Within a minute, `fleet-agent-comments-<ctx>` starts the context's agent in a new worktree named after the issue, reacts to the comment with eyes and replies with the worktree and branch; the worktree shows up in the Orca app. The first line may set `--effort` (`low` to `max`) and `--model`; the rest is instructions. With none, the agent plans the work in Lavish and waits for your approval. Only comments written by the context's GitHub account (the one `fleet login` signed in) count, and each comment starts one agent: editing it, or an older comment, starts nothing. A comment posted while Orca or GitHub was unreachable for more than an hour is dropped. If the agent cannot start, the reply says so; the details are in `fleet logs agent-comments`.
+
+### Answering reviews on your pull requests
+
+In a Claude context, `fleet-pr-reviews-<ctx>` checks your open pull requests every two minutes, in the repos added to the context's Orca. When one gets a review, or a comment on a review thread, from a collaborator, a member, an owner or a bot, it starts Claude with the `pr-review` skill in the PR's worktree (a new one on the PR branch when none exists) and notifies your phone ("Review picked up"). The agent reads the whole conversation and puts every open point on a Lavish board with what it proposes: a fix, a reply, or your call. Opening the board sends a second notification with its link. Nothing changes on the PR until you settle the board; then the agent commits the fixes, replies on the threads, posts a summary comment and watches CI with `pr-babysit`.
+
+Your own comments never count, since the agent replies as you, and neither do reviews from anyone outside the repo's collaborators; on the board, points raised only by outsiders are always left to you. One agent works on a PR at a time: reviews that arrive meanwhile wait until its terminal closes, which happens when Claude exits; close it yourself to let them through. A worktree where another terminal printed something in the last ten minutes (a session still watching the PR) also waits. A review bot that reviews again after each push starts a new round, with a new board, after each round of fixes. Pull requests from forks are skipped. The first run only records the time, so reviews already on GitHub start nothing. Failures to start are in `fleet logs pr-reviews`, and the next run retries them.
 
 ## Updating
 

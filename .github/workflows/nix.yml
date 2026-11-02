@@ -43,7 +43,7 @@ jobs:
       # runs shellcheck at every severity, info included. Check them the same
       # way, or a finding only shows up when fleet rebuild fails on the VPS.
       - name: Shellcheck packaged scripts
-        run: nix run nixpkgs#shellcheck -- --shell=bash nix/setup-user.sh nix/fleet.sh nix/claude-hook.sh nix/pr-ready.sh nix/agent-comments.sh
+        run: nix run nixpkgs#shellcheck -- --shell=bash nix/setup-user.sh nix/fleet.sh nix/claude-hook.sh nix/pr-ready.sh nix/agent-comments.sh nix/pr-reviews.sh
 
       # zizmor audits the workflows for security problems (template injection,
       # unpinned actions, leaked credentials); actionlint checks they are valid.
